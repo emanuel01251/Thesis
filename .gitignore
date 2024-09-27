@@ -1,0 +1,6 @@
+.venv_3.9/
+*.csv
+*.txt
+Hiligaynon Corpus/
+final
+__pycache__
