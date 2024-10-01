@@ -4,3 +4,7 @@
 Hiligaynon Corpus/
 final
 __pycache__
+*.bz2
+wikiextractor/
+!Dataset/Unlabeled Corpus/Hiligaynon Corpus.txt
+!Dataset/Unlabeled Corpus/Tagalog Corpus.txt
