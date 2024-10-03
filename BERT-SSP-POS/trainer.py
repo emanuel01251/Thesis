@@ -9,11 +9,11 @@ device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
 print("Device: ", device)
 
 # Input Files:
-train_corpus = "corpus/train-set.txt"
-val_corpus = "corpus/eval-set.txt"
+train_corpus = "./BERT-SSP-POS/corpus/train-set.txt"
+val_corpus = "./BERT-SSP-POS/corpus/eval-set.txt"
 
 
-bert_model = "gklmip/bert-tagalog-base-uncased"
+bert_model = "./BERT-SSP/output_model/checkpoint-8/"
 tokenizer = BertTokenizer.from_pretrained(bert_model)
 
 # print(tokenizer.additional_special_tokens_ids)
@@ -390,43 +390,31 @@ def align_tokenization(sentence, tags):
 
 
 def process_tagged_sentence(tagged_sentence):
-    # print(tagged_sentence)
-
+    # Preprocess and clean the sentence
     sentence = preprocess_sentence(tagged_sentence)
-    tags = extract_tags(tagged_sentence) # returns the tags (eto ilagay mo sa tags.txt)
-
-
+    
+    # Extract tags and encode them
+    tags = extract_tags(tagged_sentence)
     encoded_tags = [pos_tag_mapping[tag] for tag in tags]
 
-    # Align tokens
-    tokenized_sentence, encoded_tags = align_tokenization(sentence, encoded_tags)
-    encoded_sentence = tokenizer(sentence, padding="max_length" ,truncation=True, max_length=128)
+    # Tokenize the sentence with padding and truncation
+    encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128)
 
-    # Create attention mask (1 for real tokens, 0 for padding)
+    # Make sure the attention mask has the same length as the input ids
     attention_mask = [1] * len(encoded_sentence['input_ids'])
-    print("len(encoded_sentence['input_ids']):", len(encoded_sentence['input_ids']))
-    while len(encoded_sentence['input_ids']) < 128:
-        encoded_sentence['input_ids'].append(0)  # Pad with zeros
-        attention_mask.append(0)  # Pad attention mask
 
+    # Truncate or pad the encoded tags (labels) to match max_length
+    encoded_tags = encoded_tags[:128]  # Truncate to 128 if longer
+    while len(encoded_tags) < 128:  # Pad if shorter
+        encoded_tags.append(0)  # 0 is usually the label for padding
 
-    while len(encoded_tags) < 128:
-        encoded_tags.append(0)  # Pad with the ID of '[PAD]'
+    # Ensure attention mask is padded correctly to max_length
+    while len(attention_mask) < 128:
+        attention_mask.append(0)
 
+    # Add the encoded tags (labels) to the encoded sentence
     encoded_sentence['encoded_tags'] = encoded_tags
-
-    decoded_sentence = tokenizer.convert_ids_to_tokens(encoded_sentence['input_ids'], skip_special_tokens=False)
-
-    decoded_tags = [list(pos_tag_mapping.keys())[list(pos_tag_mapping.values()).index(tag_id)] for tag_id in
-                    encoded_tags]
-
-    #
-    word_tag_pairs = list(zip(decoded_sentence, decoded_tags))
-    print(encoded_sentence)
-    print("Sentence:", decoded_sentence)
-    print("Tags:", decoded_tags)
-    print("Decoded Sentence and Tags:", word_tag_pairs)
-    print("---")
+    encoded_sentence['attention_mask'] = attention_mask
 
     return encoded_sentence
 
@@ -459,10 +447,14 @@ def createDataset(train_set, val_set, test_set=None):
         'labels': [],
     }
 
+    # Apply padding and truncation consistently for all entries
     for entry in tqdm(train_set, desc="Converting training set"):
         train_dataset_dict['input_ids'].append(entry['input_ids'])
         train_dataset_dict['attention_mask'].append(entry['attention_mask'])
         train_dataset_dict['labels'].append(entry['encoded_tags'])
+
+    # Tokenizer's pad method ensures consistent length across batches
+    train_dataset_dict = tokenizer.pad(train_dataset_dict, padding=True, return_tensors="pt")
 
     train_dataset = Dataset.from_dict(train_dataset_dict)
 
@@ -476,6 +468,8 @@ def createDataset(train_set, val_set, test_set=None):
         val_dataset_dict['input_ids'].append(entry['input_ids'])
         val_dataset_dict['attention_mask'].append(entry['attention_mask'])
         val_dataset_dict['labels'].append(entry['encoded_tags'])
+
+    val_dataset_dict = tokenizer.pad(val_dataset_dict, padding=True, return_tensors="pt")
 
     val_dataset = Dataset.from_dict(val_dataset_dict)
 
@@ -496,6 +490,7 @@ def createDataset(train_set, val_set, test_set=None):
             test_dataset_dict['attention_mask'].append(entry['attention_mask'])
             test_dataset_dict['labels'].append(entry['encoded_tags'])
 
+        test_dataset_dict = tokenizer.pad(test_dataset_dict, padding=True, return_tensors="pt")
         test_dataset = Dataset.from_dict(test_dataset_dict)
 
         dataset_dict['test'] = test_dataset
@@ -535,7 +530,7 @@ batch_size = 16
 metric_name = "f1"
 
 args = TrainingArguments(
-    "checkpoint",
+    "./BERT-SSP-POS/checkpoint",
     evaluation_strategy="epoch",
     save_strategy="epoch",
     learning_rate=3e-4,
