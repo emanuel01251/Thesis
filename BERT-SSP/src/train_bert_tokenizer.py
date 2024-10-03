@@ -2,7 +2,7 @@
 
 from utils.file_utils import read_json_file
 
-tokenizer_config = read_json_file("src/tokenizer.json")
+tokenizer_config = read_json_file("./BERT-SSP/src/tokenizer.json")
 
 from tokenizers import BertWordPieceTokenizer
 

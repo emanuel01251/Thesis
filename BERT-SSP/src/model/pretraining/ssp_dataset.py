@@ -180,8 +180,16 @@ class TextDatasetForSameSentencePrediction(Dataset):
         # add special tokens
         input_ids = self.tokenizer.build_inputs_with_special_tokens(seq_a, seq_b)
 
+        # Enforce truncation if input_ids exceed block_size (512)
+        if len(input_ids) > 512:
+            input_ids = input_ids[:512]
+
         # add token type ids, 0 for segment a, 1 for segment b
         token_type_ids = self.tokenizer.create_token_type_ids_from_sequences(seq_a, seq_b)
+
+        # Enforce truncation for token_type_ids as well
+        if len(token_type_ids) > 512:
+            token_type_ids = token_type_ids[:512]
 
         return {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
