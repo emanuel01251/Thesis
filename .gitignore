@@ -10,3 +10,10 @@ wikiextractor/
 !Dataset/Unlabeled Corpus/New Hiligaynon Corpus.txt
 !Dataset/Unlabeled Corpus/Tagalog Corpus.txt
 !Dataset/Unlabeled Corpus/Merged Corpus.txt
+output_model*
+BERTPOS
+checkpoint*
+*.model
+*.npy
+synonym.py
+extract_synonym.py

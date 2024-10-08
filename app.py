@@ -1,12 +1,18 @@
-import re
-from transformers import AutoTokenizer, AutoModelForTokenClassification
 import gradio as gr
+import torch
+from transformers import AutoTokenizer, AutoModelForTokenClassification
+import re
 
-# Load the trained model and tokenizer
-model_checkpoint = "./BERT-SSP-POS/BERTPOS"
+# Define the paths to your models
+model_paths = {
+    "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
+    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS",
+    "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS",
+    "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS"
+}
 
-model = AutoModelForTokenClassification.from_pretrained(model_checkpoint)
-tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+models = {name: AutoModelForTokenClassification.from_pretrained(path) for name, path in model_paths.items()}
+tokenizers = {name: AutoTokenizer.from_pretrained(path) for name, path in model_paths.items()}
 
 pos_tag_mapping = {
     '[PAD]': 0,
@@ -313,215 +319,80 @@ def preprocess_untagged_sentence(sentence):
     print("---")
 
     return new_sentence, upper
-
-
-def preprocess_sentence(tagged_sentence):
-    # Remove the line identifier (e.g., SNT.80188.3)
-    sentence = re.sub(r'SNT\.\d+\.\d+\s+', '', tagged_sentence)
-    special_symbols = ['-', '&', ",", "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.']
-    # Construct the regex pattern for extracting words inside <TAGS> including special symbols
-    special_symbols_regex = '|'.join([re.escape(sym) for sym in special_symbols])
-    regex_pattern = r'<(?:[^<>]+? )?([a-zA-Z0-9.,&"!?{}]+)>'.format(special_symbols_regex)
-    words = re.findall(regex_pattern, tagged_sentence)
-
-    # Join the words to form a sentence
-    sentence = ' '.join(words)
-    sentence = sentence.lower()
-
-
-    # print("---")
-    # print("Sentence before:", sentence)
-
-    # Loop through the sentence and convert hyphen to '[PMP]' if the next character is a space
-    new_sentence = ""
-    i = 0
-    # print("Length: ", len(sentence))
-    while i < len(sentence):
-        # print(f"{i+1} == {len(sentence)}: {sentence[i]}")
-
-        if any(sentence[i:].startswith(symbol) for symbol in special_symbols):
-            if i + 2 < len(sentence) and sentence[i:i + 3] == '...':
-                # Ellipsis found, replace with '[PMS]'
-                new_sentence += symbol2token(sentence[i])
-                i += 3
-            elif i + 1 == len(sentence):
-                new_sentence += symbol2token(sentence[i])
-                break
-            elif sentence[i + 1] == ' ' and i == 0:
-                new_sentence += symbol2token(sentence[i])
-                i += 1
-            elif sentence[i - 1] == ' ' and sentence[i + 1] == ' ':
-                new_sentence += symbol2token(sentence[i])
-                i += 1
-            elif sentence[i - 1] != ' ':
-                new_sentence += ''
-            else:
-                word_after_symbol = ""
-                while i + 1 < len(sentence) and sentence[i + 1] != ' ' and not any(
-                        sentence[i + 1:].startswith(symbol) for symbol in special_symbols):
-                    word_after_symbol += sentence[i + 1]
-                    i += 1
-                new_sentence += word_after_symbol
-        elif any(sentence[i:].startswith(symbol) for symbol in special_symbols):
-            if i + 1 < len(sentence) and (sentence[i + 1] == ' ' and sentence[i - 1] != ' '):
-                new_sentence += '[PMS] '
-                i += 1
-            elif i + 1 == len(sentence):
-                new_sentence += '[PMS] '
-                break
-            else:
-                word_after_symbol = ""
-                while i + 1 < len(sentence) and sentence[i + 1] != ' ' and not any(
-                        sentence[i + 1:].startswith(symbol) for symbol in special_symbols):
-                    word_after_symbol += sentence[i + 1]
-                    i += 1
-                new_sentence += word_after_symbol
-        else:
-            new_sentence += sentence[i]
-        i += 1
-
-    print("Sentence after:", new_sentence.split())
-    print("---")
-
-    return new_sentence
-def extract_tags(input_sentence):
     tags = re.findall(r'<([A-Z_]+)\s.*?>', input_sentence)
     return tags
-
-def align_tokenization(sentence, tags):
-
-    print("Sentence \n: ", sentence)
-    sentence = sentence.split()
-    print("Sentence Split\n: ", sentence)
-
-    tokenized_sentence = tokenizer.tokenize(' '.join(sentence))
-    # tokenized_sentence_string = " ".join(tokenized_sentence)
-    # print("ID2Token_string\n: ", tokenized_sentence_string)
-
-    aligned_tagging = []
-    current_word = ''
-    index = 0  # index of the current word in the sentence and tagging
-
-    for token in tokenized_sentence:
-        current_word += re.sub(r'^##', '', token)
-        print("Current word after replacing ##: ", current_word)
-        print("sentence[index]: ", sentence[index])
-
-        if sentence[index] == current_word:  # if we completed a word
-            print("completed a word: ", current_word)
-            current_word = ''
-            aligned_tagging.append(tags[index])
-            index += 1
-        else:  # otherwise insert padding
-            print("incomplete word: ", current_word)
-            aligned_tagging.append(0)
-
-        print("---")
-
-    decoded_tags = [list(pos_tag_mapping.keys())[list(pos_tag_mapping.values()).index(tag_id)] for tag_id in
-                    aligned_tagging]
-    print("Tokenized Sentence\n: ", tokenized_sentence)
-    print("Tags\n: ", decoded_tags)
-
-    assert len(tokenized_sentence) == len(aligned_tagging)
-
-    aligned_tagging = [0] + aligned_tagging
-    return tokenized_sentence, aligned_tagging
-
-
-def process_tagged_sentence(tagged_sentence):
-    # print(tagged_sentence)
-
-    # Preprocess the input tagged sentence and extract the words and tags
-    sentence = preprocess_sentence(tagged_sentence)
-    tags = extract_tags(tagged_sentence) # returns the tags (eto ilagay mo sa tags.txt)
-
-
-    encoded_tags = [pos_tag_mapping[tag] for tag in tags]
-
-    # Align tokens by adding padding if needed
-    tokenized_sentence, encoded_tags = align_tokenization(sentence, encoded_tags)
-    encoded_sentence = tokenizer(sentence, padding="max_length" ,truncation=True, max_length=128)
-
-    # Create attention mask (1 for real tokens, 0 for padding)
-    attention_mask = [1] * len(encoded_sentence['input_ids'])
-    print("len(encoded_sentence['input_ids']):", len(encoded_sentence['input_ids']))
-    while len(encoded_sentence['input_ids']) < 128:
-        encoded_sentence['input_ids'].append(0)  # Pad with zeros
-        attention_mask.append(0)  # Pad attention mask
-
-
-    while len(encoded_tags) < 128:
-        encoded_tags.append(0)  # Pad with the ID of '[PAD]'
-
-    encoded_sentence['encoded_tags'] = encoded_tags
-
-    decoded_sentence = tokenizer.convert_ids_to_tokens(encoded_sentence['input_ids'], skip_special_tokens=False)
-
-    decoded_tags = [list(pos_tag_mapping.keys())[list(pos_tag_mapping.values()).index(tag_id)] for tag_id in
-                    encoded_tags]
-
-    #
-    word_tag_pairs = list(zip(decoded_sentence, decoded_tags))
-    print(encoded_sentence)
-    print("Sentence:", decoded_sentence)
-    print("Tags:", decoded_tags)
-    print("Decoded Sentence and Tags:", word_tag_pairs)
-    print("---")
-
-    return encoded_sentence
 
 import torch
 import torch.nn.functional as F
 
-def tag_sentence(input_sentence):
-    # Preprocess the input tagged sentence and extract the words and tags
+def tag_sentence(input_sentence, selected_model):
+    model = models[selected_model]  # Get the selected model
+    tokenizer = tokenizers[selected_model]  # Get the corresponding tokenizer
+
+    # Preprocess the input sentence
     sentence, upper = preprocess_untagged_sentence(input_sentence)
-
-    # Tokenize the sentence and decode it
+    
+    # Tokenize the sentence
     encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
-
-    # Pass the encoded sentence to the model to get the predicted logits
+    
+    # Pass the encoded sentence to the model to get logits
     with torch.no_grad():
         model_output = model(**encoded_sentence)
-
-    # Get the logits and apply softmax to convert them into probabilities
+    
+    # Get the predicted tags
     logits = model_output.logits
     probabilities = F.softmax(logits, dim=-1)
-
-    # Get the predicted tag for each token in the sentence
     predicted_tags = torch.argmax(probabilities, dim=-1)
-
-    # Convert the predicted tags to their corresponding labels using id2label
+    
+    # Convert predicted tags to their corresponding labels
     labels = [id2label[tag.item()] for tag in predicted_tags[0] if id2label[tag.item()] != '[PAD]']
-
+    
     return labels
 
 # Example usage:
 test_sentence = 'Ang bahay ay maganda na para bang may kumikislap sa bintana .'
 
-def predict_tags(test_sentence):
-
+def predict_tags(test_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(test_sentence)
     words_list = upper.split()
-    print("Words: ", words_list)
-    predicted_tags = tag_sentence(test_sentence)
-    print(predicted_tags)
+    predicted_tags = tag_sentence(test_sentence, selected_model)
 
+    # Align words with their corresponding predicted tags
     pairs = list(zip(words_list, predicted_tags))
     return pairs
 
-predict_tags(test_sentence)
+def pos_tagger(text, selected_model):
+    model = models[selected_model]
+    
+    inputs = tokenizers[selected_model](text, return_tensors="pt")
+    
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    predicted_tags = outputs.logits.argmax(-1).tolist()
+    
+    tagged_text = " ".join([f"{word}/{tag}" for word, tag in zip(tokenizers.convert_ids_to_tokens(inputs["input_ids"][0]), predicted_tags[0])])
+    
+    return tagged_text
+
+# Define the Gradio interface
+model_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
+
+# Gradio interface for predicting POS tags
 tagger = gr.Interface(
-    predict_tags,
-    gr.Textbox(placeholder="Enter sentence here..."),
-    ["highlight"],
+    fn=predict_tags,  # Function that processes the input
+    inputs=[
+        gr.Textbox(placeholder="Enter sentence here...", label="Input Sentence"),
+        model_dropdown  # Allow user to choose the model
+    ],
+    outputs="highlight",  # Display the tagged words as highlighted text
     title="BERT Filipino Part of Speech Tagger",
     description="Enter a text in Tagalog to classify the tags for each word. Each word to tag needs to be space separated.",
     examples=[
-        ["Ang bahay ay lumiliwanag na para bang may kumikislap sa bintana"],
-        ["Naisip ko na kumain na lang tayo sa pinakasikat na restaurant sa Manila ."],
+        ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
+        ["Nagbakal ako ng bakal."],
     ],
 )
 
-tagger.launch()
+# Launch the Gradio interface
+tagger.launch(favicon_path="favicon.png", share=True)

@@ -1,10 +1,10 @@
 {
-  "lowercase": false,
-  "input_file": "src/sample_text.txt",
-  "vocabulary_size": 32000,
+  "lowercase": true,
+  "input_file": "./data augmentation/EDA/Unlabeled Corpus/New Hiligaynon Corpus augmented_output.txt",
+  "vocabulary_size": 52099,
   "minimum_frequency": 2,
   "special_tokens": ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"],
   "alphabet_limit": 1000,
-  "output_path": "./",
-  "output_name": "cased"
+  "output_path": "./BERT-SSP-DA/tokenizer-corpus-hiligaynon",
+  "output_name": "uncased"
 }

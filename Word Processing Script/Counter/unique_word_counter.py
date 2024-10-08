@@ -5,10 +5,8 @@ def count_unique_words_in_file(file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             text = file.read()
 
-        # Remove punctuation and split text into words
         words = re.findall(r'\b\w+\b', text.lower())
 
-        # Use a set to store unique words
         unique_words = set(words)
         unique_word_count = len(unique_words)
         

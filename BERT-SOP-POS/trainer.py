@@ -14,10 +14,8 @@ val_corpus = "./BERT-SOP-POS/corpus/eval-set.txt" """
 train_corpus = "./Dataset/Labeled Corpus/train-set.txt"
 val_corpus = "./Dataset/Labeled Corpus/eval-set.txt"
 
-bert_model = "./BERT-SSP/output_model_continual/checkpoint-34120/"
-
+bert_model = "./BERT-SOP/output_model_continual_bert/checkpoint-26950/"
 vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"
 tokenizer = BertTokenizerFast(
     vocab_file=vocab_file
 )
@@ -546,7 +544,7 @@ batch_size = 16
 metric_name = "f1"
 
 args = TrainingArguments(
-    "./BERT-SSP-POS/checkpoint",
+    "./BERT-SOP-POS/checkpoint",
     evaluation_strategy="epoch",
     save_strategy="epoch",
     learning_rate=3e-4,
@@ -589,5 +587,5 @@ training = trainer.train()
 print(training)
 results = trainer.evaluate()
 print("Evaluation: ", results)
-trainer.save_model("./BERT-SSP-POS/BERTPOS")
+trainer.save_model("./BERT-SOP-POS/BERTPOS")
 print(results)

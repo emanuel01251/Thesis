@@ -1,7 +1,7 @@
 import re
 
 def remove_newline_after_brgy(input_file, output_file):
-    # Read the input file
+
     with open(input_file, 'r', encoding='utf-8') as file:
         text = file.read()
     
@@ -17,15 +17,12 @@ def remove_newline_after_brgy(input_file, output_file):
     text = re.sub(r'([A-Z])\s*\s*\s*\.', r'\1. ', text)
     text = re.sub(r'([a-z])\s*\s*\s*\.', r'\1. ', text)
 
-    # Write the modified text to the output file
     with open(output_file, 'w', encoding='utf-8') as file:
         file.write(text)
 
-# Specify input and output files
 input_file = './dataset/output_file 51-53-dataset.txt'
 output_file = './dataset/output_file 51-53-dataset.txt'
 
-# Run the function
 remove_newline_after_brgy(input_file, output_file)
 
 print(f"Done. Check '{output_file}' for results.")

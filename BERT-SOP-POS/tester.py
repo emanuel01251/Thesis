@@ -1,39 +1,14 @@
 import re
-import torch
-from transformers import BertTokenizerFast, AutoModelForTokenClassification, TrainingArguments, Trainer, EvalPrediction
-from sklearn.metrics import precision_recall_fscore_support
-from tqdm import tqdm
-from datasets import Dataset, DatasetDict
+from transformers import AutoTokenizer, AutoModelForTokenClassification
+import gradio as gr
 
-device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
-print("Device: ", device)
+# Load the trained model and tokenizer
+model_checkpoint = "./BERT-SOP-POS/BERTPOS"
+""" model = AutoModelForTokenClassification.from_pretrained(model_checkpoint)
+tokenizer = AutoTokenizer.from_pretrained("syke9p3/bert-tagalog-base-uncased-pos-tagger") """
 
-# Input Files:
-""" train_corpus = "./BERT-SOP-POS/corpus/train-set.txt"
-val_corpus = "./BERT-SOP-POS/corpus/eval-set.txt" """
-train_corpus = "./Dataset/Labeled Corpus/train-set.txt"
-val_corpus = "./Dataset/Labeled Corpus/eval-set.txt"
-
-bert_model = "./BERT-SSP/output_model_continual/checkpoint-34120/"
-
-vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"
-tokenizer = BertTokenizerFast(
-    vocab_file=vocab_file
-)
-
-""" tokenizer.model_max_length = 128
-tokenizer.vocab_size = 52099 """
-
-# print(tokenizer.additional_special_tokens_ids)
-num_added_toks = tokenizer.add_special_tokens({'additional_special_tokens': ['[PMP]', '[PMS]', '[PMC]']})
-
-
-# special_tokens = ['[PMP]', '[PMS]', '[PMC]']
-# tokenizer.add_tokens(special_tokens, special_tokens=True)
-# print("[PMP] token ID:", tokenizer.convert_tokens_to_ids('[PMP]'))
-# print("[PMS] token ID:", tokenizer.convert_tokens_to_ids('[PMS]'))
-# print("[PMC] token ID:", tokenizer.convert_tokens_to_ids('[PMC]'))
+model = AutoModelForTokenClassification.from_pretrained(model_checkpoint)
+tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 pos_tag_mapping = {
     '[PAD]': 0,
@@ -256,8 +231,10 @@ num_labels = len(pos_tag_mapping)
 id2label = {idx: tag for tag, idx in pos_tag_mapping.items()}
 label2id = {tag: idx for tag, idx in pos_tag_mapping.items()}
 
+special_symbols = ['-', '&', "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.', '?', ',']
+
 def symbol2token(symbol):
-    special_symbols = ['-', '&', "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.']
+
     # Check if the symbol is a comma
     if symbol == ',':
         return '[PMC] '
@@ -271,6 +248,74 @@ def symbol2token(symbol):
 
     # If the symbol is not a comma or in the special symbols list, keep it as it is
     return symbol
+
+def preprocess_untagged_sentence(sentence):
+    # Define regex pattern to capture all special symbols
+    special_symbols_regex = '|'.join([re.escape(sym) for sym in ['-', '&', "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.']])
+
+    # Replace all special symbols with spaces around them
+    sentence = re.sub(rf'({special_symbols_regex})', r' \1 ', sentence)
+
+    # Remove extra whitespaces
+    sentence = re.sub(r'\s+', ' ', sentence).strip()
+
+    upper = sentence
+
+    # Convert the sentence to lowercase
+    sentence = sentence.lower()
+
+    # Loop through the sentence and convert special symbols to tokens [PMS], [PMC], or [PMP]
+    new_sentence = ""
+    i = 0
+    while i < len(sentence):
+        if any(sentence[i:].startswith(symbol) for symbol in special_symbols):
+            # Check for ellipsis and replace with '[PMS]'
+            if i + 2 < len(sentence) and sentence[i:i + 3] == '...':
+                new_sentence += '[PMS]'
+                i += 3
+            # Check for single special symbols
+            elif i + 1 == len(sentence):
+                new_sentence += symbol2token(sentence[i])
+                break
+            elif sentence[i + 1] == ' ' and i == 0:
+                new_sentence += symbol2token(sentence[i])
+                i += 1
+            elif sentence[i - 1] == ' ' and sentence[i + 1] == ' ':
+                new_sentence += symbol2token(sentence[i])
+                i += 1
+            elif sentence[i - 1] != ' ':
+                new_sentence += ''
+            else:
+                word_after_symbol = ""
+                while i + 1 < len(sentence) and sentence[i + 1] != ' ' and not any(
+                        sentence[i + 1:].startswith(symbol) for symbol in special_symbols):
+                    word_after_symbol += sentence[i + 1]
+                    i += 1
+                new_sentence += word_after_symbol
+        # Check for special symbols at the start of the sentence
+        elif any(sentence[i:].startswith(symbol) for symbol in special_symbols):
+            if i + 1 < len(sentence) and (sentence[i + 1] == ' ' and sentence[i - 1] != ' '):
+                new_sentence += '[PMS] '
+                i += 1
+            elif i + 1 == len(sentence):
+                new_sentence += '[PMS] '
+                break
+            else:
+                word_after_symbol = ""
+                while i + 1 < len(sentence) and sentence[i + 1] != ' ' and not any(
+                        sentence[i + 1:].startswith(symbol) for symbol in special_symbols):
+                    word_after_symbol += sentence[i + 1]
+                    i += 1
+                new_sentence += word_after_symbol
+        else:
+            new_sentence += sentence[i]
+        i += 1
+
+    print("Sentence after:", new_sentence.split())
+    print("---")
+
+    return new_sentence, upper
+
 
 def preprocess_sentence(tagged_sentence):
     # Remove the line identifier (e.g., SNT.80188.3)
@@ -337,8 +382,8 @@ def preprocess_sentence(tagged_sentence):
             new_sentence += sentence[i]
         i += 1
 
-    # print("Sentence after:", new_sentence)
-    # print("---")
+    print("Sentence after:", new_sentence.split())
+    print("---")
 
     return new_sentence
 def extract_tags(input_sentence):
@@ -347,54 +392,40 @@ def extract_tags(input_sentence):
 
 def align_tokenization(sentence, tags):
 
-    """ print("Sentence \n: ", sentence) """
+    print("Sentence \n: ", sentence)
     sentence = sentence.split()
-    """ print("Sentence Split\n: ", sentence) """
+    print("Sentence Split\n: ", sentence)
 
     tokenized_sentence = tokenizer.tokenize(' '.join(sentence))
-    tokenized_sentence_string = " ".join(tokenized_sentence)
-    """ print("ID2Token_string\n: ", tokenized_sentence_string)
-    print("Tags\n: ", [id2label[tag_id] for tag_id in tags]) """
-    if len(tags) > 12:
-        """ print(id2label[tags[11]]) """
+    # tokenized_sentence_string = " ".join(tokenized_sentence)
+    # print("ID2Token_string\n: ", tokenized_sentence_string)
 
     aligned_tagging = []
     current_word = ''
-    index = 0
+    index = 0  # index of the current word in the sentence and tagging
 
     for token in tokenized_sentence:
-        if len(tags) > index:
-            current_word += re.sub(r'^##', '', token)
-            # print("Current word after replacing ##: ", current_word)
-            # print("sentence[index]: ", sentence[index])
+        current_word += re.sub(r'^##', '', token)
+        print("Current word after replacing ##: ", current_word)
+        print("sentence[index]: ", sentence[index])
 
-            if sentence[index] == current_word:  # if we completed a word
-                """ print("completed a word: ", current_word) """
-                current_word = ''
-                aligned_tagging.append(tags[index])
-                # print(f"Tag of index {index}: ", id2label[tags[index]])
-                # print(f"Aligned tag of index {index}: ", (id2label[aligned_tagging[-1]]))
-                # print("Tags1\n: ", [id2label[tag_id] for tag_id in tags])
-                # print("Tags2\n: ", [id2label[tag_id] for tag_id in aligned_tagging])
-                # print(f"{index+1}/{len(tags)} tags consumed")
-                index += 1
-            else:  # otherwise insert padding
-                """ print("incomplete word: ", current_word) """
-                aligned_tagging.append(0)
+        if sentence[index] == current_word:  # if we completed a word
+            print("completed a word: ", current_word)
+            current_word = ''
+            aligned_tagging.append(tags[index])
+            index += 1
+        else:  # otherwise insert padding
+            print("incomplete word: ", current_word)
+            aligned_tagging.append(0)
 
-            """ print("---") """
+        print("---")
 
     decoded_tags = [list(pos_tag_mapping.keys())[list(pos_tag_mapping.values()).index(tag_id)] for tag_id in
                     aligned_tagging]
+    print("Tokenized Sentence\n: ", tokenized_sentence)
+    print("Tags\n: ", decoded_tags)
 
-    # print("Tokenized Sentence\n: ", tokenized_sentence)
-    # print("Tokenized Len\n: ", len(tokenized_sentence))
-    # print("Tags\n: ", decoded_tags)
-    # print("Tags Count\n: ", len(decoded_tags))
-    print(tokenized_sentence)
-    print(aligned_tagging)
-    print("\n")
-    """ assert len(tokenized_sentence) == len(aligned_tagging) """
+    assert len(tokenized_sentence) == len(aligned_tagging)
 
     aligned_tagging = [0] + aligned_tagging
     return tokenized_sentence, aligned_tagging
@@ -403,19 +434,20 @@ def align_tokenization(sentence, tags):
 def process_tagged_sentence(tagged_sentence):
     # print(tagged_sentence)
 
+    # Preprocess the input tagged sentence and extract the words and tags
     sentence = preprocess_sentence(tagged_sentence)
     tags = extract_tags(tagged_sentence) # returns the tags (eto ilagay mo sa tags.txt)
 
 
     encoded_tags = [pos_tag_mapping[tag] for tag in tags]
 
-    # Align tokens
+    # Align tokens by adding padding if needed
     tokenized_sentence, encoded_tags = align_tokenization(sentence, encoded_tags)
-    encoded_sentence = tokenizer(sentence, padding='max_length' ,truncation=True, max_length=128)
+    encoded_sentence = tokenizer(sentence, padding="max_length" ,truncation=True, max_length=128)
 
     # Create attention mask (1 for real tokens, 0 for padding)
     attention_mask = [1] * len(encoded_sentence['input_ids'])
-    """ print("len(encoded_sentence['input_ids']):", len(encoded_sentence['input_ids'])) """
+    print("len(encoded_sentence['input_ids']):", len(encoded_sentence['input_ids']))
     while len(encoded_sentence['input_ids']) < 128:
         encoded_sentence['input_ids'].append(0)  # Pad with zeros
         attention_mask.append(0)  # Pad attention mask
@@ -433,161 +465,65 @@ def process_tagged_sentence(tagged_sentence):
 
     #
     word_tag_pairs = list(zip(decoded_sentence, decoded_tags))
-    """ print(encoded_sentence)
+    print(encoded_sentence)
     print("Sentence:", decoded_sentence)
     print("Tags:", decoded_tags)
     print("Decoded Sentence and Tags:", word_tag_pairs)
-    print("---") """
+    print("---")
 
     return encoded_sentence
 
+import torch
+import torch.nn.functional as F
 
-def encode_corpus(input_file):
+def tag_sentence(input_sentence):
+    # Preprocess the input tagged sentence and extract the words and tags
+    sentence, upper = preprocess_untagged_sentence(input_sentence)
 
-    encoded_sentences = []
+    # Tokenize the sentence and decode it
+    encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
 
-    with open(input_file, 'r') as f:
-        lines = f.readlines()
+    # Pass the encoded sentence to the model to get the predicted logits
+    with torch.no_grad():
+        model_output = model(**encoded_sentence)
 
-    # int = 1
+    # Get the logits and apply softmax to convert them into probabilities
+    logits = model_output.logits
+    probabilities = F.softmax(logits, dim=-1)
 
-    for line in tqdm(lines, desc="Processing corpus"):
-        # print(int)
-        # int += 1
-        input_sentence = line.strip()
-        # print(input_sentence)
+    # Get the predicted tag for each token in the sentence
+    predicted_tags = torch.argmax(probabilities, dim=-1)
 
-        encoded_sentence = process_tagged_sentence(input_sentence)
-        encoded_sentences.append(encoded_sentence)
+    # Convert the predicted tags to their corresponding labels using id2label
+    labels = [id2label[tag.item()] for tag in predicted_tags[0] if id2label[tag.item()] != '[PAD]']
 
-    return encoded_sentences
+    return labels
 
+# Example usage:
+test_sentence = 'Ang bahay ay maganda na para bang may kumikislap sa bintana .'
 
-def createDataset(train_set, val_set, test_set=None):
-    train_dataset_dict = {
-        'input_ids': [],
-        'attention_mask': [],
-        'labels': [],
-    }
+def predict_tags(test_sentence):
 
-    for entry in tqdm(train_set, desc="Converting training set"):
-        train_dataset_dict['input_ids'].append(entry['input_ids'])
-        train_dataset_dict['attention_mask'].append(entry['attention_mask'])
-        train_dataset_dict['labels'].append(entry['encoded_tags'])
+    sentence, upper = preprocess_untagged_sentence(test_sentence)
+    words_list = upper.split()
+    print("Words: ", words_list)
+    predicted_tags = tag_sentence(test_sentence)
+    print(predicted_tags)
 
-    train_dataset = Dataset.from_dict(train_dataset_dict)
+    pairs = list(zip(words_list, predicted_tags))
+    return pairs
 
-    val_dataset_dict = {
-        'input_ids': [],
-        'attention_mask': [],
-        'labels': [],
-    }
-
-    for entry in tqdm(val_set, desc="Converting validation set"):
-        val_dataset_dict['input_ids'].append(entry['input_ids'])
-        val_dataset_dict['attention_mask'].append(entry['attention_mask'])
-        val_dataset_dict['labels'].append(entry['encoded_tags'])
-
-    val_dataset = Dataset.from_dict(val_dataset_dict)
-
-    dataset_dict = DatasetDict({
-        'train': train_dataset,
-        'validation': val_dataset,
-    })
-
-    if test_set is not None:
-        test_dataset_dict = {
-            'input_ids': [],
-            'attention_mask': [],
-            'labels': [],
-        }
-
-        for entry in tqdm(test_set, desc="Converting test set"):
-            test_dataset_dict['input_ids'].append(entry['input_ids'])
-            test_dataset_dict['attention_mask'].append(entry['attention_mask'])
-            test_dataset_dict['labels'].append(entry['encoded_tags'])
-
-        test_dataset = Dataset.from_dict(test_dataset_dict)
-
-        dataset_dict['test'] = test_dataset
-
-    print("Dataset created.")
-    return dataset_dict
-
-
-test_sentence = [
-'SNT.108970.2066 <DTC Ang.> <PRI isa> <CCT sa> <DTCP mga> <NNC susog> <CCP na> <PRO ito> <PMC ,> <DTC ang> <NNP Post-9> <PMS /> <CDB 11> <NNP Batas> <NNP Pangtulong> <CCT sa> <NNP Edukasyon> <CCB ng> <DTCP mga> <NNP Beterano> <CDB 2008> <PMC ,> <LM ay> <RBT_CCP pwedeng> <VBAF magpakita> <CCT bilang> <JJD_CCP modernong> <NNC salin> <CCB ng> <NNC panahon> <CCB ng> <NNP_CCP Ikalawang> <NNP_CCP Digmaang> <JJD pangdaigdig> <PMP .>',
-'SNT.206230.256	<VBTS -Sinabi-> <CCB n-g> <NNC tag-apag-salita> <CCT para> <CCT sa> <NNP Winner> <NNP International> <CCT sa> <PRI_CCP isang> <NNC pahayag> <PMC ,> <PMS "> <PMS [> <PRO ito> <LM ay> <PMS ]> <JJCS_JJD napakahirap> <CCP na> <NNC panahon> <CCT para> <CCT sa> <PRSP_CCP aming> <PRI lahat> <CCA at> <VBTR hinihiling> <CCB ng> <NNC pamilya> <CCP na> <VBTF igalang> <PRP ninyo> <DTC ang> <PRSP_CCP kanilang> <NNC pribasya> <PMP .> <PMS ">',
-'SNT.187937.383	<VBTS Sinabi> <CCB ng> <JJN pangalawang> <PMS -> <NNC tagapangulo> <CCP na> <DTP si> <NNP Lee> <NNP Cheuk-yan> <CCP na> <DTC ang> <VBOF ginawa> <CCB ng> <NNPA C&ED> <LM ay> <RBF hindi> <JJD pangkaraniwan> <PMC ,> <CCA at> <VBOF tinawagan> <RBI na> <PRS niya> <DTC ang> <NNC departamento> <CCB upang> <VBW makita> <CCR kung> <DTC ang> <NNC departamento> <LM ay> <VBTR pinipilit> <CCP na> <VBW makita> <DTC ang> <DTCP mga> <NNC_CCP kagamitang> <VBH may> <NNC kaugnayan> <CCT sa> <NNC_CCP insidenteng> <VBTS naganap> <CCT sa> <NNP Tiananmen> <NNP Square> <PMP .>'
-]
-
-
-train_corpus = encode_corpus(train_corpus)
-val_corpus = encode_corpus(val_corpus)
-
-
-encoded_dataset = createDataset(train_corpus, val_corpus)
-""" print(encoded_dataset) """
-
-max_token_length = 128
-vocab_size = tokenizer.vocab_size
-
-encoded_dataset.set_format("torch")
-
-model = AutoModelForTokenClassification.from_pretrained(bert_model,
-                                                           num_labels=num_labels,
-                                                           id2label=id2label,
-                                                           label2id=label2id)
-
-
-model.resize_token_embeddings(len(tokenizer))
-
-batch_size = 16
-metric_name = "f1"
-
-args = TrainingArguments(
-    "./BERT-SSP-POS/checkpoint",
-    evaluation_strategy="epoch",
-    save_strategy="epoch",
-    learning_rate=3e-4,
-    per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size,
-    num_train_epochs=5,
-    weight_decay=0.01,
-    load_best_model_at_end=True,
-    metric_for_best_model=metric_name,
-    label_names=["labels"],
+predict_tags(test_sentence)
+tagger = gr.Interface(
+    predict_tags,
+    gr.Textbox(placeholder="Enter sentence here..."),
+    ["highlight"],
+    title="BERT Filipino Part of Speech Tagger",
+    description="Enter a text in Tagalog to classify the tags for each word. Each word to tag needs to be space separated.",
+    examples=[
+        ["Ang bahay ay lumiliwanag na para bang may kumikislap sa bintana"],
+        ["Naisip ko na kumain na lang tayo sa pinakasikat na restaurant sa Manila ."],
+    ],
 )
 
-
-def compute_metrics(p):
-    y_true = p.label_ids #(sentence[num_of_sentences], words[number_of_words]) (800, 128)
-    y_pred = p.predictions.argmax(-1)
-
-    y_true_flat = [tag_id for tags in y_true for tag_id in tags]
-    y_pred_flat = [tag_id for tags in y_pred for tag_id in tags]
-
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true_flat, y_pred_flat, average="micro")
-
-    return {
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-    }
-
-
-trainer = Trainer(
-    model,
-    args,
-    train_dataset=encoded_dataset["train"],
-    eval_dataset=encoded_dataset["validation"],
-    tokenizer=tokenizer,
-    compute_metrics=compute_metrics
-)
-
-training = trainer.train()
-print(training)
-results = trainer.evaluate()
-print("Evaluation: ", results)
-trainer.save_model("./BERT-SSP-POS/BERTPOS")
-print(results)
+tagger.launch()

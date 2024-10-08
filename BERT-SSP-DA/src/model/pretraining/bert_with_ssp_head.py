@@ -29,8 +29,10 @@ class SSPHead(nn.Module):
 class BertForPreTrainingMLMAndSSP(BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
+
         self.bert = BertModel(config)
         self.cls = BertPreTrainingHeads(config)
+
         self.init_weights()
 
     def get_output_embeddings(self):

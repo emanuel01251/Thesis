@@ -2,11 +2,13 @@ from transformers import BertConfig, BertTokenizer
 from bert_with_ssp_head import BertForPreTrainingMLMAndSSP
 from ssp_dataset import TextDatasetForSameSentencePrediction
 from transformers import DataCollatorForLanguageModeling
-from transformers import Trainer, TrainingArguments, BertTokenizerFast, EarlyStoppingCallback
+from transformers import Trainer, TrainingArguments, BertTokenizerFast
 
-# Load your custom tokenizer from your own files
+""" tokenizer_path = "bert-base-cased"
+tokenizer = BertTokenizer.from_pretrained(tokenizer_path) """
+
 vocab_file = "./BERT-SSP/tokenizer-corpus/cased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"
+merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"  # If merges_file is required (optional for BERT)
 tokenizer = BertTokenizerFast(
     vocab_file=vocab_file, 
     tokenizer_file=merges_file, 
@@ -14,7 +16,9 @@ tokenizer = BertTokenizerFast(
     truncation=True
 )
 
+
 import os
+
 
 current_dir = os.getcwd()
 current_dir += "\Dataset"
@@ -33,33 +37,34 @@ data_collator = DataCollatorForLanguageModeling(
     mlm=True, 
     mlm_probability=0.15
 )
-
+    
 config = BertConfig.from_pretrained('bert-base-cased')
+# Update the vocab_size to match the tokenizer's vocabulary size
+config.vocab_size = len(tokenizer)
+
+""" # Optional: Save the modified config if needed
+config.save_pretrained('path_to_save_modified_config') """
 model = BertForPreTrainingMLMAndSSP(config)
 
 training_args = TrainingArguments(
     output_dir=".\BERT-SSP\output_model",
     num_train_epochs=25,
     per_device_train_batch_size=8,
-    learning_rate=1e-4,
+    learning_rate=5e-5,
     save_strategy="steps", 
     save_steps=30000,
     save_total_limit=2,
     save_safetensors=False,  # Disable safe serialization to avoid weight-sharing issues
     no_cuda=False,
-    evaluation_strategy="steps",  # Ensure evaluation happens during training
-    eval_steps=10000,  # Frequency of evaluation
-    load_best_model_at_end=True,  # Load the best model when training ends
-    metric_for_best_model="eval_loss",  # Monitor evaluation loss for early stopping
-    greater_is_better=False  # Lower eval loss is better
 )
 
 trainer = Trainer(
     model=model,
     args=training_args,
     data_collator=data_collator,
-    train_dataset=dataset,
-    callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]  # Early stopping after 3 non-improving evaluations
+    train_dataset=dataset
 )
 
 trainer.train()
+
+

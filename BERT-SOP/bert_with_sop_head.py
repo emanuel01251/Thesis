@@ -9,11 +9,9 @@ from dataclasses import dataclass
 
 from transformers.file_utils import ModelOutput
 
+class SOPHead(nn.Module):
+    """Custom head for Sentence Order Prediction (SOP) task."""
 
-## Similar to ALBERT's SOP head.
-## See: https://github.com/huggingface/transformers/blob/c016dbdbdaf79339ae6d275d4651dc9f380be055/src/transformers/models/albert/modeling_albert.py#L879
-class SSPHead(nn.Module):
-    ## Get parameters of dropout and linear layer from configuration
     def __init__(self, config=None):
         super().__init__()
 
@@ -25,8 +23,7 @@ class SSPHead(nn.Module):
         logits = self.classifier(dropout_pooled_output)
         return logits
 
-
-class BertForPreTrainingMLMAndSSP(BertPreTrainedModel):
+class BertForPreTrainingMLMandSOP(BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.bert = BertModel(config)
@@ -40,18 +37,18 @@ class BertForPreTrainingMLMAndSSP(BertPreTrainedModel):
         self.cls.predictions.decoder = new_embeddings
 
     def forward(
-            self,
-            input_ids=None,
-            attention_mask=None,
-            token_type_ids=None,
-            position_ids=None,
-            head_mask=None,
-            inputs_embeds=None,
-            labels=None,
-            same_sentence_label=None,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,  # For MLM
+        sentence_order_label=None,  # For SOP
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -71,11 +68,11 @@ class BertForPreTrainingMLMAndSSP(BertPreTrainedModel):
         prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
 
         total_loss = None
-        if labels is not None and same_sentence_label is not None:
+        if labels is not None and sentence_order_label is not None:
             loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-            same_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), same_sentence_label.view(-1))
-            total_loss = masked_lm_loss + same_sentence_loss
+            sop_loss = loss_fct(seq_relationship_score.view(-1, 2), sentence_order_label.view(-1))
+            total_loss = masked_lm_loss + sop_loss
 
         if not return_dict:
             output = (prediction_scores, seq_relationship_score) + outputs[2:]
@@ -90,18 +87,16 @@ class BertForPreTrainingMLMAndSSP(BertPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-
 class BertPreTrainingHeads(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.predictions = BertLMPredictionHead(config)
-        self.seq_relationship = SSPHead(config)
+        self.predictions = BertLMPredictionHead(config)  # MLM head
+        self.seq_relationship = SOPHead(config)
 
     def forward(self, sequence_output, pooled_output):
         prediction_scores = self.predictions(sequence_output)
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
-
 
 ## Copied from Huggingface
 ## See: https://github.com/huggingface/transformers/blob/c016dbdbdaf79339ae6d275d4651dc9f380be055/src/transformers/models/bert/modeling_bert.py#L657

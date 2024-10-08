@@ -1,0 +1,10 @@
+{
+  "lowercase": true,
+  "input_file": "./dataset/Unlabeled Corpus/New Hiligaynon Corpus.txt",
+  "vocabulary_size": 30101,
+  "minimum_frequency": 2,
+  "special_tokens": ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"],
+  "alphabet_limit": 1000,
+  "output_path": "./BERT-SSP/tokenizer-corpus-hiligaynon",
+  "output_name": "uncased"
+}

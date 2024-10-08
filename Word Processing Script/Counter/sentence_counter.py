@@ -5,10 +5,8 @@ def count_sentences_in_file(file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             text = file.read()
 
-        # Regular expression to match sentences based on punctuation marks
         sentences = re.split(r'[.!?]+', text)
         
-        # Remove any empty strings from the resulting list
         sentences = [s for s in sentences if s.strip()]
         sentence_count = len(sentences)
         
@@ -19,6 +17,5 @@ def count_sentences_in_file(file_path):
         print(f"Error: The file '{file_path}' was not found.")
         return None
 
-# Example usage
-file_path = './dataset/Hiligaynon Articles From PRWC.txt'
+file_path = './dataset/Unlabeled Corpus/Merged Corpus.txt'
 count_sentences_in_file(file_path)
