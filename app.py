@@ -344,24 +344,27 @@ def tag_sentence(input_sentence, selected_model):
     probabilities = F.softmax(logits, dim=-1)
     predicted_tags = torch.argmax(probabilities, dim=-1)
     
-    # Convert predicted tags to their corresponding labels
-    labels = [id2label[tag.item()] for tag in predicted_tags[0] if id2label[tag.item()] != '[PAD]']
+    # Convert predicted tags to their corresponding labels and scores
+    scores = probabilities[0].max(dim=-1)[0].tolist()  # Get max scores for each token
+    labels = [id2label[tag.item()] for tag in predicted_tags[0]]
     
-    return labels
-
-# Example usage:
-test_sentence = 'Ang bahay ay maganda na para bang may kumikislap sa bintana .'
+    # Filter out the padding tokens and their scores
+    filtered_pairs = [(labels[i], scores[i]) for i in range(len(labels)) if labels[i] != '[PAD]']
+    
+    return filtered_pairs  # Return the pairs of (label, score)
 
 def predict_tags(test_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(test_sentence)
     words_list = upper.split()
-    predicted_tags = tag_sentence(test_sentence, selected_model)
+    predicted_pairs = tag_sentence(test_sentence, selected_model)
 
-    # Align words with their corresponding predicted tags
-    pairs = list(zip(words_list, predicted_tags))
-    return pairs
+    # Align words with their corresponding predicted tags and scores
+    formatted_output = [{"word": words_list[i], "entity": predicted_pairs[i][0], "score": predicted_pairs[i][1]}
+                        for i in range(len(predicted_pairs))]
+    
+    return formatted_output
 
-def pos_tagger(text, selected_model):
+""" def pos_tagger(text, selected_model):
     model = models[selected_model]
     
     inputs = tokenizers[selected_model](text, return_tensors="pt")
@@ -373,26 +376,327 @@ def pos_tagger(text, selected_model):
     
     tagged_text = " ".join([f"{word}/{tag}" for word, tag in zip(tokenizers.convert_ids_to_tokens(inputs["input_ids"][0]), predicted_tags[0])])
     
-    return tagged_text
+    return tagged_text """
 
-# Define the Gradio interface
-model_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
+html_table = """
+<table style="width: 100%; border: 1px solid black; border-collapse: collapse;">
+    <thead>
+        <tr>
+            <th style="border: 1px solid black; padding: 8px;">Part of Speech</th>
+            <th style="border: 1px solid black; padding: 8px;">Tags</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Common Noun</td>
+            <td style="border: 1px solid black; padding: 8px;">NNC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Proper Noun</td>
+            <td style="border: 1px solid black; padding: 8px;">NNP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Proper Noun Abbreviation</td>
+            <td style="border: 1px solid black; padding: 8px;">NNPA</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Common Noun Abbreviation</td>
+            <td style="border: 1px solid black; padding: 8px;">NNCA</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">as Subject (Palagyo)/Personal Pronouns Singular</td>
+            <td style="border: 1px solid black; padding: 8px;">PRS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Personal Pronouns</td>
+            <td style="border: 1px solid black; padding: 8px;">PRP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Possessive Subject (Paari)</td>
+            <td style="border: 1px solid black; padding: 8px;">PRSP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Pointing to an Object Demonstrative/(Paturo)/Pamatlig</td>
+            <td style="border: 1px solid black; padding: 8px;">PRO</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Question/Interrogative (Pananong)/Singular</td>
+            <td style="border: 1px solid black; padding: 8px;">PRQ</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Question/Interrogative Plural</td>
+            <td style="border: 1px solid black; padding: 8px;">PRQP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Location (Panlunan)</td>
+            <td style="border: 1px solid black; padding: 8px;">PRL</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Comparison (Panulad)</td>
+            <td style="border: 1px solid black; padding: 8px;">PRC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Found (Pahimaton)</td>
+            <td style="border: 1px solid black; padding: 8px;">PRF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Indefinite</td>
+            <td style="border: 1px solid black; padding: 8px;">PRI</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Determiner</td>
+            <td style="border: 1px solid black; padding: 8px;">DT</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Common Noun Plural</td>
+            <td style="border: 1px solid black; padding: 8px;">DTC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Proper Noun</td>
+            <td style="border: 1px solid black; padding: 8px;">DTP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Proper Noun Plural</td>
+            <td style="border: 1px solid black; padding: 8px;">DTPP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Lexical Marker</td>
+            <td style="border: 1px solid black; padding: 8px;">LM</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Conjunctions (Pang-ugnay)</td>
+            <td style="border: 1px solid black; padding: 8px;">CC, CCT, CCR, CCB, CCA</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Ligatures (Pang-angkop)</td>
+            <td style="border: 1px solid black; padding: 8px;">CCP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Preposition (Pang-ukol)</td>
+            <td style="border: 1px solid black; padding: 8px;">CCU</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Verb (Pandiwa)</td>
+            <td style="border: 1px solid black; padding: 8px;">VB</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Neutral/Infinitive</td>
+            <td style="border: 1px solid black; padding: 8px;">VBW</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Auxiliary, Modal/Pseudo-verbs</td>
+            <td style="border: 1px solid black; padding: 8px;">VBS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Existential</td>
+            <td style="border: 1px solid black; padding: 8px;">VBH</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Non-existential</td>
+            <td style="border: 1px solid black; padding: 8px;">VBN</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Time Past (Perfective)</td>
+            <td style="border: 1px solid black; padding: 8px;">VBTS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Time Present (Imperfective)</td>
+            <td style="border: 1px solid black; padding: 8px;">VBTR</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Time Future (Contemplative)</td>
+            <td style="border: 1px solid black; padding: 8px;">VBTF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Recent Past</td>
+            <td style="border: 1px solid black; padding: 8px;">VBTP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Actor Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBAF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Object/Goal Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBOF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Benefactive Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBOB</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Locative Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBOL</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Instrumental Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBOI</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Referential/Measurement Focus</td>
+            <td style="border: 1px solid black; padding: 8px;">VBRF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Adjective (Pang-uri)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJ</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Describing (Panlarawan)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJD</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Used for Comparison (same level) (Pahambing Magkatulad)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Comparison Comparative (more) (Palamang)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJCC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Comparison Superlative (most) (Pasukdol)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJCS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Comparison Negation (not quite) (Di-Magkatulad)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJCN</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Describing Number (Pamilang)</td>
+            <td style="border: 1px solid black; padding: 8px;">JJN</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Adverb (Pang-Abay)</td>
+            <td style="border: 1px solid black; padding: 8px;">RB</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Describing “How” (Pamaraang)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBD</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Number (Panggaano/Panukat)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBN</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Conditional (Kondisyunal)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBK</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Causative (Pananhi)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Benefactive (Benepaktibo)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBB</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Referential (Pangkaukulan)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBR</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Question (Pananong)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBQ</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Agree (Panang-ayon)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBT</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Disagree (Pananggi)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBF</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Frequency (Pamanahon)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBW</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Possibility (Pang-agam)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBM</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Place (Panlunan)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBL</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Enclitics (Paningit)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBI</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Interjections (Sambitla)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBJ</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Social Formula (Pormularyong Panlipunan)</td>
+            <td style="border: 1px solid black; padding: 8px;">RBS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Cardinal Number (Bilang)</td>
+            <td style="border: 1px solid black; padding: 8px;">CD</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Digit, Rank, Count</td>
+            <td style="border: 1px solid black; padding: 8px;">CDB</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Topicless (Walang Paksa)</td>
+            <td style="border: 1px solid black; padding: 8px;">TS</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Foreign Words</td>
+            <td style="border: 1px solid black; padding: 8px;">FW</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Punctuation (Pananda)</td>
+            <td style="border: 1px solid black; padding: 8px;">PM</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Period</td>
+            <td style="border: 1px solid black; padding: 8px;">PMP</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Exclamation Point</td>
+            <td style="border: 1px solid black; padding: 8px;">PME</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Question Mark</td>
+            <td style="border: 1px solid black; padding: 8px;">PMQ</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Comma</td>
+            <td style="border: 1px solid black; padding: 8px;">PMC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Semi-colon</td>
+            <td style="border: 1px solid black; padding: 8px;">PMSC</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid black; padding: 8px;">Symbols</td>
+            <td style="border: 1px solid black; padding: 8px;">PMS</td>
+        </tr>
+    </tbody>
+</table>
+"""
 
-# Gradio interface for predicting POS tags
-tagger = gr.Interface(
-    fn=predict_tags,  # Function that processes the input
-    inputs=[
-        gr.Textbox(placeholder="Enter sentence here...", label="Input Sentence"),
-        model_dropdown  # Allow user to choose the model
-    ],
-    outputs="highlight",  # Display the tagged words as highlighted text
-    title="BERT Filipino Part of Speech Tagger",
-    description="Enter a text in Tagalog to classify the tags for each word. Each word to tag needs to be space separated.",
-    examples=[
-        ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
-        ["Nagbakal ako ng bakal."],
-    ],
-)
+with gr.Blocks() as tagger:
+    gr.Markdown("<div style='text-align: center; font-size: 2em;'>TAGALONGGO: A Tagalog-Ilonggo code-mixed part of speech tagger.</div>")
+    gr.Markdown("<div style='text-align: center;'>Enter a text in Tagalog/Hiligaynon to classify the tags for each word. Each word to tag needs to be space separated.</div>")
+    
+    sentence_input = gr.Textbox(placeholder="Enter sentence here...", label="Input Sentence")
+    model_input_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
+    submit_button = gr.Button("Submit")
+    
+    example_text = gr.Examples(
+        examples=[
+            ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
+            ["Nagbakal ako ng bakal."]
+        ],
+        inputs=[sentence_input, model_input_dropdown]
+    )
+    
+    """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """  # The tagged sentence output
+    tagged_output = gr.JSON(label="Tagged Words with Scores")
 
-# Launch the Gradio interface
+    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output)  # Trigger tagging on button click
+    
+    gr.HTML(html_table)
+
+
 tagger.launch(favicon_path="favicon.png", share=True)
