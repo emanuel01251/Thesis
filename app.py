@@ -230,7 +230,6 @@ pos_tag_mapping = {
     'DP': 212,
 }
 
-
 num_labels = len(pos_tag_mapping)
 id2label = {idx: tag for tag, idx in pos_tag_mapping.items()}
 label2id = {tag: idx for tag, idx in pos_tag_mapping.items()}
@@ -322,6 +321,9 @@ def preprocess_untagged_sentence(sentence):
     tags = re.findall(r'<([A-Z_]+)\s.*?>', input_sentence)
     return tags
 
+def clear_function(): 
+    return "", "SSP with Augmentation"
+
 import torch
 import torch.nn.functional as F
 
@@ -379,7 +381,7 @@ def predict_tags(test_sentence, selected_model):
     return tagged_text """
 
 html_table = """
-<table style="width: 100%; border: 1px solid black; border-collapse: collapse;">
+<table style="width: 100%; border: 1px solid gray; border-collapse: collapse;">
     <thead>
         <tr>
             <th style="border: 1px solid black; padding: 8px;">Part of Speech</th>
@@ -673,30 +675,37 @@ html_table = """
         </tr>
     </tbody>
 </table>
+
 """
 
-with gr.Blocks() as tagger:
-    gr.Markdown("<div style='text-align: center; font-size: 2em;'>TAGALONGGO: A Tagalog-Ilonggo code-mixed part of speech tagger.</div>")
-    gr.Markdown("<div style='text-align: center;'>Enter a text in Tagalog/Hiligaynon to classify the tags for each word. Each word to tag needs to be space separated.</div>")
-    
-    sentence_input = gr.Textbox(placeholder="Enter sentence here...", label="Input Sentence")
-    model_input_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
-    submit_button = gr.Button("Submit")
-    
-    example_text = gr.Examples(
-        examples=[
-            ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
-            ["Nagbakal ako ng bakal."]
-        ],
-        inputs=[sentence_input, model_input_dropdown]
-    )
-    
-    """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """  # The tagged sentence output
-    tagged_output = gr.JSON(label="Tagged Words with Scores")
+with gr.Blocks(theme='ParityError/Interstellar') as tagger:
+    gr.Markdown("<div style='margin-top: 20px; text-align: center; font-size: 2em; font-weight: bold;'>TAGALONGGO: A Part-of-Speech (POS) Tagger For Tagalog-Ilonggo Texts Using Bilingual BERT</div>")
 
-    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output)  # Trigger tagging on button click
+    with gr.Row(): 
+        with gr.Column(): 
+            sentence_input = gr.Textbox(placeholder="Enter sentence here...", label="Input")
+            model_input_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
+            
+            with gr.Row():
+                clear_button = gr.Button("Clear")
+                clear_button.click(fn=clear_function, outputs=[sentence_input, model_input_dropdown])  # Set outputs for clearing
+                submit_button = gr.Button("Submit")
+
+            example_text = gr.Examples(
+                examples=[
+                    ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
+                    ["Nagbakal ako ng bakal."]
+                ],
+                inputs=[sentence_input, model_input_dropdown]
+            )
+
+        with gr.Column():  
+            """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """
+            tagged_output = gr.JSON(label="Tagged Texts:")  
+            
+
+    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output) 
     
     gr.HTML(html_table)
-
 
 tagger.launch(favicon_path="favicon.png", share=True)
