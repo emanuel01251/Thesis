@@ -355,6 +355,30 @@ def tag_sentence(input_sentence, selected_model):
     
     return filtered_pairs  # Return the pairs of (label, score)
 
+def tag_sentence_highlight(input_sentence, selected_model):
+    model = models[selected_model]  # Get the selected model
+    tokenizer = tokenizers[selected_model]  # Get the corresponding tokenizer
+
+    # Preprocess the input sentence
+    sentence, upper = preprocess_untagged_sentence(input_sentence)
+    
+    # Tokenize the sentence
+    encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    
+    # Pass the encoded sentence to the model to get logits
+    with torch.no_grad():
+        model_output = model(**encoded_sentence)
+    
+    # Get the predicted tags
+    logits = model_output.logits
+    probabilities = F.softmax(logits, dim=-1)
+    predicted_tags = torch.argmax(probabilities, dim=-1)
+    
+    # Convert predicted tags to their corresponding labels
+    labels = [id2label[tag.item()] for tag in predicted_tags[0] if id2label[tag.item()] != '[PAD]']
+    
+    return labels
+
 def predict_tags(test_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(test_sentence)
     words_list = upper.split()
@@ -365,6 +389,17 @@ def predict_tags(test_sentence, selected_model):
                         for i in range(len(predicted_pairs))]
     
     return formatted_output
+
+def predict_tags_highlight(test_sentence, selected_model):
+    sentence, upper = preprocess_untagged_sentence(test_sentence)
+    words_list = upper.split()
+    predicted_tags = tag_sentence_highlight(test_sentence, selected_model)
+
+    # Align words with their corresponding predicted tags
+    pairs = list(zip(words_list, predicted_tags))
+    return pairs
+
+
 
 """ def pos_tagger(text, selected_model):
     model = models[selected_model]
@@ -701,11 +736,12 @@ with gr.Blocks(theme='ParityError/Interstellar') as tagger:
 
         with gr.Column():  
             """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """
-            tagged_output = gr.JSON(label="Tagged Texts:")  
-            
+            tagged_output = gr.HighlightedText(label="Tagged Texts:")
+            tagged_output_with_scores = gr.JSON(label="Tagged Texts With Scores:")
+        
 
-    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output) 
-    
+    submit_button.click(fn=predict_tags_highlight, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output) 
+    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output_with_scores) 
     gr.HTML(html_table)
 
 tagger.launch(favicon_path="favicon.png", share=True)
