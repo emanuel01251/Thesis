@@ -5,8 +5,8 @@ import re
 
 # Define the paths to your models
 model_paths = {
-    """ "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
-    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS", """
+    "SSP with Augmentation": "emanuel01251/BERT_SSP_DA_POS",
+    "SOP with Augmentation": "emanuel01251/BERT_SOP_DA_POS",
     "SSP without Augmentation": "emanuel01251/BERT_SSP_POS",
     "SOP without Augmentation": "emanuel01251/BERT_SOP_POS"
 }
