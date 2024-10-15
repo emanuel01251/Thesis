@@ -5,11 +5,17 @@ import re
 
 # Define the paths to your models
 model_paths = {
+    """ "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
+    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS", """
+    "SSP without Augmentation": "emanuel01251/BERT_SSP_POS",
+    "SOP without Augmentation": "emanuel01251/BERT_SOP_POS"
+}
+""" model_paths = {
     "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
     "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS",
     "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS",
     "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS"
-}
+} """
 
 models = {name: AutoModelForTokenClassification.from_pretrained(path) for name, path in model_paths.items()}
 tokenizers = {name: AutoTokenizer.from_pretrained(path) for name, path in model_paths.items()}
@@ -36,7 +42,7 @@ pos_tag_mapping = {
     'DTP': 18,
     'DTPP': 19,
     'LM': 20,
-    'CC': 21,
+    'CJN': 21,
     'CCT': 22,
     'CCR': 23,
     'CCB': 24,
@@ -56,8 +62,8 @@ pos_tag_mapping = {
     'VBTR': 38,
     'VBTF': 39,
     'VBTP': 40,
-    'VBAF': 41,
-    'VBOF': 42,
+    'VB': 41,
+    'VB': 42,
     'VBOB': 43,
     'VBOL': 44,
     'VBOI': 45,
@@ -91,7 +97,7 @@ pos_tag_mapping = {
     'RBLI': 73,
     'TS': 74,
     'FW': 75,
-    'CD': 76,
+    'CDB': 76,
     'CCB_CCP': 77,
     'CCR_CCA': 78,
     'CCR_CCB': 79,
@@ -121,11 +127,11 @@ pos_tag_mapping = {
     'JJCS_JJN': 103,
     'JJCS_JJN_CCP': 104,
     'JJCS_RBF': 105,
-    'JJCS_VBAF': 106,
-    'JJCS_VBAF_CCP': 107,
+    'JJCS_VB': 106,
+    'JJCS_VB_CCP': 107,
     'JJCS_VBN_CCP': 108,
-    'JJCS_VBOF': 109,
-    'JJCS_VBOF_CCP': 110,
+    'JJCS_VB': 109,
+    'JJCS_VB_CCP': 110,
     'JJCS_VBN': 111,
     'RBQ_CCP': 112,
     'JJC_CCB': 113,
@@ -171,10 +177,10 @@ pos_tag_mapping = {
     'VBTS_CCP': 153,
     'VBTS_JJD': 154,
     'VBTS_LM': 155,
-    'VBAF_CCP': 156,
+    'VB_CCP': 156,
     'VBOB_CCP': 157,
-    'VBOF_CCP': 158,
-    'VBOF_CCP_NNP': 159,
+    'VB_CCP': 158,
+    'VB_CCP_NNP': 159,
     'VBRF_CCP': 160,
     'CCP': 161,
     'CDB': 162,
@@ -182,16 +188,16 @@ pos_tag_mapping = {
     'RBD_CCP': 164,
     'DTCP': 165,
     'VBH': 166,
-    'VBTS_VBOF': 167,
+    'VBTS_VB': 167,
     'PRI_CCP': 168,
-    'VBTR_VBAF_CCP': 169,
+    'VBTR_VB_CCP': 169,
     'DQL': 170,
     'DQR': 171,
     'RBT_CCP': 172,
     'VBW_CCP': 173,
     'RBI_CCP': 174,
     'VBN_CCP': 175,
-    'VBTR_VBAF': 176,
+    'VBTR_VB': 176,
     'VBTF_CCP': 177,
     'JJCS_JJD_NNC': 178,
     'CCU': 179,
@@ -200,10 +206,10 @@ pos_tag_mapping = {
     'PRP_CCP': 182,
     'VBTR_VBRF': 183,
     'VBH_CCP': 184,
-    'VBTS_VBAF': 185,
-    'VBTF_VBOF': 186,
-    'VBTR_VBOF': 187,
-    'VBTF_VBAF': 188,
+    'VBTS_VB': 185,
+    'VBTF_VB': 186,
+    'VBTR_VB': 187,
+    'VBTF_VB': 188,
     'JJCS_JJD_CCB': 189,
     'JJCS_JJD_CCP': 190,
     'RBM_CCP': 191,
@@ -226,7 +232,7 @@ pos_tag_mapping = {
     'MS': 208,
     'BTF': 209,
     'CA': 210,
-    'VBOF_RBR': 211,
+    'VB_RBR': 211,
     'DP': 212,
 }
 
