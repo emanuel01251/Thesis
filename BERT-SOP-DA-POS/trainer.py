@@ -1,9 +1,12 @@
 import re
 import torch
-from transformers import BertTokenizerFast, AutoModelForTokenClassification, TrainingArguments, Trainer, EvalPrediction
+from transformers import BertTokenizer, AutoModelForTokenClassification, TrainingArguments, Trainer, EvalPrediction
 from sklearn.metrics import precision_recall_fscore_support
 from tqdm import tqdm
 from datasets import Dataset, DatasetDict
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
 print("Device: ", device)
@@ -11,29 +14,26 @@ print("Device: ", device)
 # Input Files:
 """ train_corpus = "./BERT-SOP-POS/corpus/train-set.txt"
 val_corpus = "./BERT-SOP-POS/corpus/eval-set.txt" """
-train_corpus = "./Dataset/Labeled Corpus/train-set.txt"
-val_corpus = "./Dataset/Labeled Corpus/eval-set.txt"
+""" train_corpus = "./Dataset/Labeled Corpus/train-set.txt"
+val_corpus = "./Dataset/Labeled Corpus/eval-set.txt" """
+train_corpus = "./Dataset/Labeled Corpus/augmented hil-train-set-new.txt"
+val_corpus = "./Dataset/Labeled Corpus/augmented hil-eval-set-new.txt"
 
-bert_model = "./BERT-SOP-DA/output_model_continual_bert/checkpoint-28500/"
-
+""" vocab_file = "./BERT-SSP/tokenizer-corpus-tagalog/uncased-vocab.txt" """
+""" vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt" """
 vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"
-tokenizer = BertTokenizerFast(
+tokenizer = BertTokenizer(
     vocab_file=vocab_file
 )
 
-""" tokenizer.model_max_length = 128
-tokenizer.vocab_size = 52099 """
+bert_model = "./BERT-SOP/output_model_tagalog_hiligaynon/checkpoint-67000/"
+output_file = "./BERT-SOP-DA-POS/predictions_output.txt"
+args_directory = "./BERT-SOP-DA-POS/checkpoint"
+save_path = "./BERT-SOP-DA-POS/confusion_matrix.png"
+epoch_number = 25
+save_model = "./BERT-SOP-DA-POS/BERTPOS"
 
-# print(tokenizer.additional_special_tokens_ids)
 num_added_toks = tokenizer.add_special_tokens({'additional_special_tokens': ['[PMP]', '[PMS]', '[PMC]']})
-
-
-# special_tokens = ['[PMP]', '[PMS]', '[PMC]']
-# tokenizer.add_tokens(special_tokens, special_tokens=True)
-# print("[PMP] token ID:", tokenizer.convert_tokens_to_ids('[PMP]'))
-# print("[PMS] token ID:", tokenizer.convert_tokens_to_ids('[PMS]'))
-# print("[PMC] token ID:", tokenizer.convert_tokens_to_ids('[PMC]'))
 
 pos_tag_mapping = {
     '[PAD]': 0,
@@ -57,7 +57,7 @@ pos_tag_mapping = {
     'DTP': 18,
     'DTPP': 19,
     'LM': 20,
-    'CC': 21,
+    'CJN': 21,
     'CCT': 22,
     'CCR': 23,
     'CCB': 24,
@@ -77,8 +77,8 @@ pos_tag_mapping = {
     'VBTR': 38,
     'VBTF': 39,
     'VBTP': 40,
-    'VBAF': 41,
-    'VBOF': 42,
+    'VB': 41,
+    'VB': 42,
     'VBOB': 43,
     'VBOL': 44,
     'VBOI': 45,
@@ -112,7 +112,7 @@ pos_tag_mapping = {
     'RBLI': 73,
     'TS': 74,
     'FW': 75,
-    'CD': 76,
+    'CDB': 76,
     'CCB_CCP': 77,
     'CCR_CCA': 78,
     'CCR_CCB': 79,
@@ -142,11 +142,11 @@ pos_tag_mapping = {
     'JJCS_JJN': 103,
     'JJCS_JJN_CCP': 104,
     'JJCS_RBF': 105,
-    'JJCS_VBAF': 106,
-    'JJCS_VBAF_CCP': 107,
+    'JJCS_VB': 106,
+    'JJCS_VB_CCP': 107,
     'JJCS_VBN_CCP': 108,
-    'JJCS_VBOF': 109,
-    'JJCS_VBOF_CCP': 110,
+    'JJCS_VB': 109,
+    'JJCS_VB_CCP': 110,
     'JJCS_VBN': 111,
     'RBQ_CCP': 112,
     'JJC_CCB': 113,
@@ -192,10 +192,10 @@ pos_tag_mapping = {
     'VBTS_CCP': 153,
     'VBTS_JJD': 154,
     'VBTS_LM': 155,
-    'VBAF_CCP': 156,
+    'VB_CCP': 156,
     'VBOB_CCP': 157,
-    'VBOF_CCP': 158,
-    'VBOF_CCP_NNP': 159,
+    'VB_CCP': 158,
+    'VB_CCP_NNP': 159,
     'VBRF_CCP': 160,
     'CCP': 161,
     'CDB': 162,
@@ -203,16 +203,16 @@ pos_tag_mapping = {
     'RBD_CCP': 164,
     'DTCP': 165,
     'VBH': 166,
-    'VBTS_VBOF': 167,
+    'VBTS_VB': 167,
     'PRI_CCP': 168,
-    'VBTR_VBAF_CCP': 169,
+    'VBTR_VB_CCP': 169,
     'DQL': 170,
     'DQR': 171,
     'RBT_CCP': 172,
     'VBW_CCP': 173,
     'RBI_CCP': 174,
     'VBN_CCP': 175,
-    'VBTR_VBAF': 176,
+    'VBTR_VB': 176,
     'VBTF_CCP': 177,
     'JJCS_JJD_NNC': 178,
     'CCU': 179,
@@ -221,10 +221,10 @@ pos_tag_mapping = {
     'PRP_CCP': 182,
     'VBTR_VBRF': 183,
     'VBH_CCP': 184,
-    'VBTS_VBAF': 185,
-    'VBTF_VBOF': 186,
-    'VBTR_VBOF': 187,
-    'VBTF_VBAF': 188,
+    'VBTS_VB': 185,
+    'VBTF_VB': 186,
+    'VBTR_VB': 187,
+    'VBTF_VB': 188,
     'JJCS_JJD_CCB': 189,
     'JJCS_JJD_CCP': 190,
     'RBM_CCP': 191,
@@ -247,10 +247,24 @@ pos_tag_mapping = {
     'MS': 208,
     'BTF': 209,
     'CA': 210,
-    'VBOF_RBR': 211,
+    'VB_RBR': 211,
     'DP': 212,
 }
 
+# Mapping of specific POS tags to their general categories
+general_pos_mapping = {
+    'NNC': 'Noun', 'NNP': 'Noun', 'NNPA': 'Noun', 'NNCA': 'Noun',
+    'PR': 'Pronoun', 'PRS': 'Pronoun', 'PRP': 'Pronoun', 'PRSP': 'Pronoun', 'PRO': 'Pronoun', 'PRL': 'Pronoun', 'PRC': 'Pronoun',
+    'DT': 'Determiner', 'DTC': 'Determiner', 'DTP': 'Determiner',
+    'LM': 'Lexical Marker',
+    'CJN': 'Conjunction', 'CCP': 'Conjunction', 'CCU': 'Conjunction',
+    'VB': 'Verb', 'VBW': 'Verb', 'VBS': 'Verb', 'VBH': 'Verb', 'VBN': 'Verb', 'VBTS': 'Verb', 'VBTR': 'Verb', 'VBTF': 'Verb',
+    'JJ': 'Adjective', 'JJD': 'Adjective', 'JJC': 'Adjective', 'JJCC': 'Adjective', 'JJCS': 'Adjective', 'JJN': 'Adjective',
+    'RB': 'Adverb', 'RBD': 'Adverb', 'RBN': 'Adverb', 'RBK': 'Adverb', 'RBR': 'Adverb', 'RBQ': 'Adverb', 'RBT': 'Adverb', 'RBF': 'Adverb', 'RBW': 'Adverb', 'RBM': 'Adverb', 'RBL': 'Adverb', 'RBI': 'Adverb',
+    'CDB': 'Digit, Rank, Count', 
+    'FW': 'Foreign Words', 
+    'PM': 'Punctuation', 'PMP': 'Punctuation', 'PME': 'Punctuation','PMQ': 'Punctuation', 'PMC': 'Punctuation', 'PMSC': 'Punctuation', 'PMS': 'Punctuation'
+}
 
 num_labels = len(pos_tag_mapping)
 id2label = {idx: tag for tag, idx in pos_tag_mapping.items()}
@@ -345,18 +359,45 @@ def extract_tags(input_sentence):
     tags = re.findall(r'<([A-Z_]+)\s.*?>', input_sentence)
     return tags
 
+""" # New function for prediction_output
+def align_tokenization(sentence, tags):
+    sentence = sentence.split()
+    tokenized_sentence = tokenizer.tokenize(' '.join(sentence))
+
+    aligned_tagging = []
+    current_word = ''
+    index = 0
+
+    for token in tokenized_sentence:
+        if len(tags) > index:
+            current_word += re.sub(r'^##', '', token)
+            
+            if sentence[index] == current_word:  # Word completed
+                current_word = ''
+                aligned_tagging.append(tags[index])
+                index += 1
+            else:  # Subword token, repeat the current label
+                aligned_tagging.append(tags[index])
+
+    # Pad remaining labels if necessary
+    while len(aligned_tagging) < len(tokenized_sentence):
+        aligned_tagging.append(0)  # Use 0 (pad) or other appropriate padding value
+    
+    return tokenized_sentence, aligned_tagging """
+
 def align_tokenization(sentence, tags):
 
-    """ print("Sentence \n: ", sentence) """
+    #print("Sentence \n: ", sentence)
     sentence = sentence.split()
-    """ print("Sentence Split\n: ", sentence) """
+    #print("Sentence Split\n: ", sentence)
 
     tokenized_sentence = tokenizer.tokenize(' '.join(sentence))
     tokenized_sentence_string = " ".join(tokenized_sentence)
-    """ print("ID2Token_string\n: ", tokenized_sentence_string)
-    print("Tags\n: ", [id2label[tag_id] for tag_id in tags]) """
+    #print("ID2Token_string\n: ", tokenized_sentence_string)
+    #print("Tags\n: ", [id2label[tag_id] for tag_id in tags])
     if len(tags) > 12:
-        """ print(id2label[tags[11]]) """
+        #print(id2label[tags[11]])
+        """  """
 
     aligned_tagging = []
     current_word = ''
@@ -369,7 +410,7 @@ def align_tokenization(sentence, tags):
             # print("sentence[index]: ", sentence[index])
 
             if sentence[index] == current_word:  # if we completed a word
-                """ print("completed a word: ", current_word) """
+                #print("completed a word: ", current_word)
                 current_word = ''
                 aligned_tagging.append(tags[index])
                 # print(f"Tag of index {index}: ", id2label[tags[index]])
@@ -379,10 +420,10 @@ def align_tokenization(sentence, tags):
                 # print(f"{index+1}/{len(tags)} tags consumed")
                 index += 1
             else:  # otherwise insert padding
-                """ print("incomplete word: ", current_word) """
+                #print("incomplete word: ", current_word)
                 aligned_tagging.append(0)
 
-            """ print("---") """
+            #print("---")
 
     decoded_tags = [list(pos_tag_mapping.keys())[list(pos_tag_mapping.values()).index(tag_id)] for tag_id in
                     aligned_tagging]
@@ -394,11 +435,10 @@ def align_tokenization(sentence, tags):
     print(tokenized_sentence)
     print(aligned_tagging)
     print("\n")
-    """ assert len(tokenized_sentence) == len(aligned_tagging) """
+    #assert len(tokenized_sentence) == len(aligned_tagging)
 
     aligned_tagging = [0] + aligned_tagging
     return tokenized_sentence, aligned_tagging
-
 
 def process_tagged_sentence(tagged_sentence):
     # print(tagged_sentence)
@@ -441,7 +481,6 @@ def process_tagged_sentence(tagged_sentence):
 
     return encoded_sentence
 
-
 def encode_corpus(input_file):
 
     encoded_sentences = []
@@ -461,7 +500,6 @@ def encode_corpus(input_file):
         encoded_sentences.append(encoded_sentence)
 
     return encoded_sentences
-
 
 def createDataset(train_set, val_set, test_set=None):
     train_dataset_dict = {
@@ -514,17 +552,8 @@ def createDataset(train_set, val_set, test_set=None):
     print("Dataset created.")
     return dataset_dict
 
-
-test_sentence = [
-'SNT.108970.2066 <DTC Ang.> <PRI isa> <CCT sa> <DTCP mga> <NNC susog> <CCP na> <PRO ito> <PMC ,> <DTC ang> <NNP Post-9> <PMS /> <CDB 11> <NNP Batas> <NNP Pangtulong> <CCT sa> <NNP Edukasyon> <CCB ng> <DTCP mga> <NNP Beterano> <CDB 2008> <PMC ,> <LM ay> <RBT_CCP pwedeng> <VBAF magpakita> <CCT bilang> <JJD_CCP modernong> <NNC salin> <CCB ng> <NNC panahon> <CCB ng> <NNP_CCP Ikalawang> <NNP_CCP Digmaang> <JJD pangdaigdig> <PMP .>',
-'SNT.206230.256	<VBTS -Sinabi-> <CCB n-g> <NNC tag-apag-salita> <CCT para> <CCT sa> <NNP Winner> <NNP International> <CCT sa> <PRI_CCP isang> <NNC pahayag> <PMC ,> <PMS "> <PMS [> <PRO ito> <LM ay> <PMS ]> <JJCS_JJD napakahirap> <CCP na> <NNC panahon> <CCT para> <CCT sa> <PRSP_CCP aming> <PRI lahat> <CCA at> <VBTR hinihiling> <CCB ng> <NNC pamilya> <CCP na> <VBTF igalang> <PRP ninyo> <DTC ang> <PRSP_CCP kanilang> <NNC pribasya> <PMP .> <PMS ">',
-'SNT.187937.383	<VBTS Sinabi> <CCB ng> <JJN pangalawang> <PMS -> <NNC tagapangulo> <CCP na> <DTP si> <NNP Lee> <NNP Cheuk-yan> <CCP na> <DTC ang> <VBOF ginawa> <CCB ng> <NNPA C&ED> <LM ay> <RBF hindi> <JJD pangkaraniwan> <PMC ,> <CCA at> <VBOF tinawagan> <RBI na> <PRS niya> <DTC ang> <NNC departamento> <CCB upang> <VBW makita> <CCR kung> <DTC ang> <NNC departamento> <LM ay> <VBTR pinipilit> <CCP na> <VBW makita> <DTC ang> <DTCP mga> <NNC_CCP kagamitang> <VBH may> <NNC kaugnayan> <CCT sa> <NNC_CCP insidenteng> <VBTS naganap> <CCT sa> <NNP Tiananmen> <NNP Square> <PMP .>'
-]
-
-
 train_corpus = encode_corpus(train_corpus)
 val_corpus = encode_corpus(val_corpus)
-
 
 encoded_dataset = createDataset(train_corpus, val_corpus)
 """ print(encoded_dataset) """
@@ -539,20 +568,20 @@ model = AutoModelForTokenClassification.from_pretrained(bert_model,
                                                            id2label=id2label,
                                                            label2id=label2id)
 
-
 model.resize_token_embeddings(len(tokenizer))
 
 batch_size = 16
-metric_name = "f1"
+metric_name = "precision"
 
 args = TrainingArguments(
-    "./BERT-SOP-DA-POS/checkpoint",
+    args_directory,
     evaluation_strategy="epoch",
     save_strategy="epoch",
+    save_total_limit=2,
     learning_rate=3e-4,
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
-    num_train_epochs=5,
+    num_train_epochs=epoch_number,
     weight_decay=0.01,
     load_best_model_at_end=True,
     metric_for_best_model=metric_name,
@@ -561,13 +590,21 @@ args = TrainingArguments(
 
 
 def compute_metrics(p):
-    y_true = p.label_ids #(sentence[num_of_sentences], words[number_of_words]) (800, 128)
-    y_pred = p.predictions.argmax(-1)
+    y_true = p.label_ids  # True labels
+    y_pred = p.predictions.argmax(-1)  # Predicted labels
 
     y_true_flat = [tag_id for tags in y_true for tag_id in tags]
     y_pred_flat = [tag_id for tags in y_pred for tag_id in tags]
 
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true_flat, y_pred_flat, average="micro")
+    # Calculate the confusion matrix (for logging, not returning)
+    conf_matrix = confusion_matrix(y_true_flat, y_pred_flat, labels=list(label2id.values()))
+
+    # Print the confusion matrix for manual inspection
+    print("Confusion Matrix:")
+    print(conf_matrix)
+
+    # Calculate precision, recall, and f1
+    precision, recall, f1, _ = precision_recall_fscore_support(y_true_flat, y_pred_flat, average="macro")
 
     return {
         "precision": precision,
@@ -586,8 +623,89 @@ trainer = Trainer(
 )
 
 training = trainer.train()
-print(training)
 results = trainer.evaluate()
+
+# Get the predictions and true labels manually
+predictions = trainer.predict(encoded_dataset["validation"])
+y_true = predictions.label_ids
+y_pred = predictions.predictions.argmax(-1)
+
+# Flatten the labels
+y_true_flat = []
+y_pred_flat = []
+
+for true_labels, pred_labels in zip(y_true, y_pred):
+    for true_label, pred_label in zip(true_labels, pred_labels):
+        if true_label != label2id['[PAD]']:  # Ignore padding tokens
+            y_true_flat.append(true_label)
+            y_pred_flat.append(pred_label)
+
+# Convert IDs to labels using id2label dictionary
+y_true_labels = [id2label[tag_id] for tag_id in y_true_flat]
+y_pred_labels = [id2label[tag_id] for tag_id in y_pred_flat]
+
+# Map the specific POS tags to general categories
+def map_to_general_pos(labels, mapping):
+    return [mapping.get(label, label) for label in labels]
+
+# Flatten the labels and apply the general POS mapping
+y_true_flat_general = map_to_general_pos([id2label[tag_id] for tag_id in y_true_flat], general_pos_mapping)
+y_pred_flat_general = map_to_general_pos([id2label[tag_id] for tag_id in y_pred_flat], general_pos_mapping)
+
+# Print each sentence with its corresponding predictions for each word and write to a text file
+def print_sentences_with_predictions_to_file(validation_dataset, y_true_filtered, y_pred_filtered, output_file=output_file):
+    with open(output_file, "w") as f:
+        for i in range(len(validation_dataset)):
+            # Decode the original sentence
+            input_ids = validation_dataset[i]["input_ids"]
+            original_sentence_tokens = tokenizer.convert_ids_to_tokens(input_ids)
+
+            # Skip special tokens like [CLS], [SEP], and [PAD]
+            original_sentence_tokens = [
+                token for token in original_sentence_tokens if token not in ["[CLS]", "[SEP]", "[PAD]"]
+            ]
+
+            # Get the true and predicted labels for the sentence
+            true_labels = y_true_filtered[i * len(original_sentence_tokens): (i + 1) * len(original_sentence_tokens)]
+            pred_labels = y_pred_filtered[i * len(original_sentence_tokens): (i + 1) * len(original_sentence_tokens)]
+
+            # Remove padding tokens from the sentence
+            filtered_sentence_tokens, filtered_true_labels, filtered_pred_labels = [], [], []
+            for token, true_label, pred_label in zip(original_sentence_tokens, true_labels, pred_labels):
+                if true_label != '[PAD]' and pred_label != '[PAD]':
+                    filtered_sentence_tokens.append(token)
+                    filtered_true_labels.append(true_label)
+                    filtered_pred_labels.append(pred_label)
+
+            # Write each word with its corresponding true and predicted labels to the file
+            f.write(f"Sentence {i + 1}:\n")
+            for token, true_label, pred_label in zip(filtered_sentence_tokens, filtered_true_labels, filtered_pred_labels):
+                f.write(f"Word: {token}\tTrue Label: {true_label}\tPredicted Label: {pred_label}\n")
+            f.write("\n")
+
+# Call the function to print sentences and word-level predictions to a text file
+#print_sentences_with_predictions_to_file(encoded_dataset['validation'], y_true_labels, y_pred_labels)
+
+# Get unique general POS categories for the confusion matrix
+unique_labels = sorted(set(general_pos_mapping.values()))
+
+# Create confusion matrix
+conf_matrix_general = confusion_matrix(y_true_flat_general, y_pred_flat_general, labels=unique_labels)
+
+# Plot the confusion matrix as a heatmap
+def plot_confusion_matrix(conf_matrix, labels, save_path):
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels)
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.title("Confusion Matrix (General POS Categories)")
+    # Save the figure to a file
+    plt.savefig(save_path)
+    plt.show()
+
+# Plot the confusion matrix for general POS categories
+plot_confusion_matrix(conf_matrix_general, unique_labels, save_path)
+
 print("Evaluation: ", results)
-trainer.save_model("./BERT-SOP-DA-POS/BERTPOS")
+trainer.save_model(save_model)
 print(results)

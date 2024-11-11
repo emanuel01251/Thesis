@@ -4,18 +4,18 @@ from transformers import AutoTokenizer, AutoModelForTokenClassification
 import re
 
 # Define the paths to your models
-model_paths = {
+""" model_paths = {
     "SSP with Augmentation": "emanuel01251/BERT_SSP_DA_POS",
     "SOP with Augmentation": "emanuel01251/BERT_SOP_DA_POS",
     "SSP without Augmentation": "emanuel01251/BERT_SSP_POS",
     "SOP without Augmentation": "emanuel01251/BERT_SOP_POS"
-}
-""" model_paths = {
+} """
+model_paths = {
     "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
     "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS",
     "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS",
     "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS"
-} """
+}
 
 models = {name: AutoModelForTokenClassification.from_pretrained(path) for name, path in model_paths.items()}
 tokenizers = {name: AutoTokenizer.from_pretrained(path) for name, path in model_paths.items()}
@@ -467,20 +467,12 @@ html_table = """
             <td style="border: 1px solid black; padding: 8px;">PRQ</td>
         </tr>
         <tr>
-            <td style="border: 1px solid black; padding: 8px;">Question/Interrogative Plural</td>
-            <td style="border: 1px solid black; padding: 8px;">PRQP</td>
-        </tr>
-        <tr>
             <td style="border: 1px solid black; padding: 8px;">Location (Panlunan)</td>
             <td style="border: 1px solid black; padding: 8px;">PRL</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Comparison (Panulad)</td>
             <td style="border: 1px solid black; padding: 8px;">PRC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Found (Pahimaton)</td>
-            <td style="border: 1px solid black; padding: 8px;">PRF</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Indefinite</td>
@@ -499,16 +491,12 @@ html_table = """
             <td style="border: 1px solid black; padding: 8px;">DTP</td>
         </tr>
         <tr>
-            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Proper Noun Plural</td>
-            <td style="border: 1px solid black; padding: 8px;">DTPP</td>
-        </tr>
-        <tr>
             <td style="border: 1px solid black; padding: 8px;">Lexical Marker</td>
             <td style="border: 1px solid black; padding: 8px;">LM</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Conjunctions (Pang-ugnay)</td>
-            <td style="border: 1px solid black; padding: 8px;">CC, CCT, CCR, CCB, CCA</td>
+            <td style="border: 1px solid black; padding: 8px;">CJN</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Ligatures (Pang-angkop)</td>
@@ -551,34 +539,6 @@ html_table = """
             <td style="border: 1px solid black; padding: 8px;">VBTF</td>
         </tr>
         <tr>
-            <td style="border: 1px solid black; padding: 8px;">Recent Past</td>
-            <td style="border: 1px solid black; padding: 8px;">VBTP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Actor Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBAF</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Object/Goal Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBOF</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Benefactive Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBOB</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Locative Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBOL</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Instrumental Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBOI</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Referential/Measurement Focus</td>
-            <td style="border: 1px solid black; padding: 8px;">VBRF</td>
-        </tr>
-        <tr>
             <td style="border: 1px solid black; padding: 8px;">Adjective (Pang-uri)</td>
             <td style="border: 1px solid black; padding: 8px;">JJ</td>
         </tr>
@@ -599,10 +559,6 @@ html_table = """
             <td style="border: 1px solid black; padding: 8px;">JJCS</td>
         </tr>
         <tr>
-            <td style="border: 1px solid black; padding: 8px;">Comparison Negation (not quite) (Di-Magkatulad)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJCN</td>
-        </tr>
-        <tr>
             <td style="border: 1px solid black; padding: 8px;">Describing Number (Pamilang)</td>
             <td style="border: 1px solid black; padding: 8px;">JJN</td>
         </tr>
@@ -621,14 +577,6 @@ html_table = """
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Conditional (Kondisyunal)</td>
             <td style="border: 1px solid black; padding: 8px;">RBK</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Causative (Pananhi)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Benefactive (Benepaktibo)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBB</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Referential (Pangkaukulan)</td>
@@ -663,24 +611,12 @@ html_table = """
             <td style="border: 1px solid black; padding: 8px;">RBI</td>
         </tr>
         <tr>
-            <td style="border: 1px solid black; padding: 8px;">Interjections (Sambitla)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBJ</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Social Formula (Pormularyong Panlipunan)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBS</td>
-        </tr>
-        <tr>
             <td style="border: 1px solid black; padding: 8px;">Cardinal Number (Bilang)</td>
             <td style="border: 1px solid black; padding: 8px;">CD</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Digit, Rank, Count</td>
             <td style="border: 1px solid black; padding: 8px;">CDB</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Topicless (Walang Paksa)</td>
-            <td style="border: 1px solid black; padding: 8px;">TS</td>
         </tr>
         <tr>
             <td style="border: 1px solid black; padding: 8px;">Foreign Words</td>
@@ -740,7 +676,7 @@ with gr.Blocks(theme='ParityError/Interstellar') as tagger:
                 inputs=[sentence_input, model_input_dropdown]
             )
 
-        with gr.Column():  
+        with gr.Column(min_width=900):  
             """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """
             tagged_output = gr.HighlightedText(label="Tagged Texts:")
             tagged_output_with_scores = gr.JSON(label="Tagged Texts With Scores:")
