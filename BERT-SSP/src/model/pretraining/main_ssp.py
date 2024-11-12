@@ -5,8 +5,8 @@ from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments, AutoTokenizer
 
 
-vocab_file = "./BERT-SSP/tokenizer-corpus-tagalog/uncased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"  # If merges_file is required (optional for BERT)
+""" vocab_file = "./BERT-SSP/tokenizer-corpus-tagalog/uncased-vocab.txt" """
+vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
 """ tokenizer = BertTokenizerFast(
     vocab_file=vocab_file,
     tokenizer_file=merges_file
@@ -20,7 +20,7 @@ import os
 
 current_dir = os.getcwd()
 current_dir += "\Dataset"
-texts = os.path.join(current_dir, "Unlabeled Corpus", "Tagalog Corpus.txt")
+texts = os.path.join(current_dir, "Unlabeled Corpus", "New Hiligaynon Corpus.txt")
 
 dataset = TextDatasetForSameSentencePrediction(
     tokenizer=tokenizer,
@@ -30,16 +30,14 @@ dataset = TextDatasetForSameSentencePrediction(
     ssp_probability=0.5
 )
 
-# Data collator for masked language modeling
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, 
     mlm=True, 
     mlm_probability=0.15
 )
 
-config = BertConfig.from_pretrained('GKLMIP/bert-tagalog-base-uncased')
-# Update the vocab_size to match the tokenizer's vocabulary size
-config.vocab_size = len(tokenizer)
+config = BertConfig.from_pretrained('./BERT-SSP/output_model_tagalog/checkpoint-478000')
+""" config.vocab_size = len(tokenizer) """
 
 """ # Optional: Save the modified config if needed
 config.save_pretrained('path_to_save_modified_config') """
@@ -47,10 +45,10 @@ model = BertForPreTrainingMLMAndSSP(config)
 
 # Define new training arguments
 training_args = TrainingArguments(
-    output_dir="./BERT-SSP/output_model_tagalog",  # Directory where the model checkpoints will be saved
-    num_train_epochs=25,
+    output_dir="./BERT-SSP/output_model_tagalog_hiligaynon3",  # Directory where the model checkpoints will be saved
+    num_train_epochs=80,
     per_device_train_batch_size=8,
-    learning_rate=5e-6, #1e-5 is next
+    learning_rate=1e-5, #1e-5 is next
     save_strategy="steps", 
     save_steps=1000,
     save_total_limit=2,
@@ -58,7 +56,6 @@ training_args = TrainingArguments(
     no_cuda=False,  # Use GPU if available
 )
 
-# Create a Trainer instance with the loaded model and dataset
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -66,6 +63,6 @@ trainer = Trainer(
     train_dataset=dataset
 )
 
-checkpoint_dir = "./BERT-SSP/output_model_tagalog/checkpoint-65000"  # Replace with the correct checkpoint step
-
-trainer.train(resume_from_checkpoint=checkpoint_dir)
+checkpoint_dir = "./BERT-SSP/output_model_tagalog/checkpoint-478000"  # Replace with the correct checkpoint step
+""" resume_from_checkpoint=checkpoint_dir """
+trainer.train()
