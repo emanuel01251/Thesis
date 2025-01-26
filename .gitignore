@@ -11,7 +11,7 @@ wikiextractor/
 !Dataset/Unlabeled Corpus/Tagalog Corpus.txt
 !Dataset/Unlabeled Corpus/Merged Corpus.txt
 output_model*
-BERTPOS
+BERTPOS*
 checkpoint*
 *.model
 *.npy

@@ -1,8 +1,8 @@
-from transformers import BertConfig, BertTokenizer, BertTokenizerFast
+from transformers import BertConfig, BertTokenizer
 from bert_with_ssp_head import BertForPreTrainingMLMAndSSP
 from ssp_dataset import TextDatasetForSameSentencePrediction
 from transformers import DataCollatorForLanguageModeling
-from transformers import Trainer, TrainingArguments, AutoTokenizer
+from transformers import Trainer, TrainingArguments
 
 
 """ vocab_file = "./BERT-SSP/tokenizer-corpus-tagalog/uncased-vocab.txt" """
@@ -11,7 +11,7 @@ vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
     vocab_file=vocab_file,
     tokenizer_file=merges_file
 ) """
-tokenizer = BertTokenizerFast(
+tokenizer = BertTokenizer(
     vocab_file=vocab_file
 )
 
@@ -36,7 +36,7 @@ data_collator = DataCollatorForLanguageModeling(
     mlm_probability=0.15
 )
 
-config = BertConfig.from_pretrained('./BERT-SSP/output_model_tagalog/checkpoint-478000')
+config = BertConfig.from_pretrained('gklmip/bert-tagalog-base-uncased')
 """ config.vocab_size = len(tokenizer) """
 
 """ # Optional: Save the modified config if needed
@@ -45,10 +45,10 @@ model = BertForPreTrainingMLMAndSSP(config)
 
 # Define new training arguments
 training_args = TrainingArguments(
-    output_dir="./BERT-SSP/output_model_tagalog_hiligaynon3",  # Directory where the model checkpoints will be saved
-    num_train_epochs=80,
+    output_dir="./BERT-SSP/output_model_hiligaynon",  # Directory where the model checkpoints will be saved
+    num_train_epochs=25,
     per_device_train_batch_size=8,
-    learning_rate=1e-5, #1e-5 is next
+    learning_rate=5e-5,
     save_strategy="steps", 
     save_steps=1000,
     save_total_limit=2,

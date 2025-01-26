@@ -497,9 +497,6 @@ def tag_sentence(input_sentence):
 
     return labels
 
-# Example usage:
-test_sentence = 'Ang bahay ay maganda na para bang may kumikislap sa bintana .'
-
 def predict_tags(test_sentence):
 
     sentence, upper = preprocess_untagged_sentence(test_sentence)
@@ -511,7 +508,6 @@ def predict_tags(test_sentence):
     pairs = list(zip(words_list, predicted_tags))
     return pairs
 
-predict_tags(test_sentence)
 tagger = gr.Interface(
     predict_tags,
     gr.Textbox(placeholder="Enter sentence here..."),

@@ -436,7 +436,7 @@ def process_tagged_sentence(tagged_sentence):
 
     # Preprocess the input tagged sentence and extract the words and tags
     sentence = preprocess_sentence(tagged_sentence)
-    tags = extract_tags(tagged_sentence) # returns the tags (eto ilagay mo sa tags.txt)
+    tags = extract_tags(tagged_sentence) # returns the tags
 
 
     encoded_tags = [pos_tag_mapping[tag] for tag in tags]

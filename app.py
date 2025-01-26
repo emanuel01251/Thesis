@@ -1,20 +1,43 @@
+""" 
+Program Title:
+    TAGALONGGO POS Tagging Interface (app.py)
+
+Created at:
+    Tue Oct 1 2024
+Last updated:
+    Fri Nov 8 2024
+
+Programmers:
+    Emanuel Jamero
+    John Nicolas Oandasan
+    Vince Favorito
+    Kyla Marie Alcantara
+
+Purpose:
+    To provide an interactive user interface for Part-of-Speech (POS) tagging of Tagalog-Ilonggo text. 
+    Users can input their text and select from four different BERT-based POS tagging models—SSP, 
+    SOP, SSP with Data Augmentation, and SOP with Data Augmentation. The interface allows users to 
+    see how each selected model performs on the given text, displaying the POS tagging results. 
+    This functionality is intended to facilitate comparative analysis and to make it easier for 
+    users to experiment with different model configurations for POS tagging in a bilingual context.
+
+ """
+
 import gradio as gr
+from how_to_use import create_how_to_use_page
+from about_us import create_about_us_page
+from pos_tags_reference import create_pos_tags_reference
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 import re
 
-# Define the paths to your models
-""" model_paths = {
-    "SSP with Augmentation": "emanuel01251/BERT_SSP_DA_POS",
-    "SOP with Augmentation": "emanuel01251/BERT_SOP_DA_POS",
-    "SSP without Augmentation": "emanuel01251/BERT_SSP_POS",
-    "SOP without Augmentation": "emanuel01251/BERT_SOP_POS"
-} """
 model_paths = {
-    "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS",
-    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS",
-    "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS",
-    "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS"
+    "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS_tl",
+    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS_tl",
+    "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS_tl",
+    "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS_tl",
+    "Baseline": "./BERT-NSP-POS/BERTPOS_tl",
+    "Baseline with Augmentation": "./BERT-NSP-DA-POS/BERTPOS_tl"
 }
 
 models = {name: AutoModelForTokenClassification.from_pretrained(path) for name, path in model_paths.items()}
@@ -22,218 +45,17 @@ tokenizers = {name: AutoTokenizer.from_pretrained(path) for name, path in model_
 
 pos_tag_mapping = {
     '[PAD]': 0,
-    'NNC': 1,
-    'NNP': 2,
-    'NNPA': 3,
-    'NNCA': 4,
-    'PR': 5,
-    'PRS': 6,
-    'PRP': 7,
-    'PRSP': 8,
-    'PRO': 9,
-    'PRQ': 10,
-    'PRQP': 11,
-    'PRL': 12,
-    'PRC': 13,
-    'PRF': 14,
-    'PRI': 15,
-    'DT': 16,
-    'DTC': 17,
-    'DTP': 18,
-    'DTPP': 19,
-    'LM': 20,
-    'CJN': 21,
-    'CCT': 22,
-    'CCR': 23,
-    'CCB': 24,
-    'CCA': 25,
-    'PM': 26,
-    'PMP': 27,
-    'PME': 28,
-    'PMQ': 29,
-    'PMC': 30,
-    'PMSC': 31,
-    'PMS': 32,
-    'VB': 33,
-    'VBW': 34,
-    'VBS': 35,
-    'VBN': 36,
-    'VBTS': 37,
-    'VBTR': 38,
-    'VBTF': 39,
-    'VBTP': 40,
-    'VB': 41,
-    'VB': 42,
-    'VBOB': 43,
-    'VBOL': 44,
-    'VBOI': 45,
-    'VBRF': 46,
-    'JJ': 47,
-    'JJD': 48,
-    'JJC': 49,
-    'JJCC': 50,
-    'JJCS': 51,
-    'JJCN': 52,
-    'JJCF': 53,
-    'JJCB': 54,
-    'JJT': 55,
-    'RB': 56,
-    'RBD': 57,
-    'RBN': 58,
-    'RBK': 59,
-    'RBP': 60,
-    'RBB': 61,
-    'RBR': 62,
-    'RBQ': 63,
-    'RBT': 64,
-    'RBF': 65,
-    'RBW': 66,
-    'RBM': 67,
-    'RBL': 68,
-    'RBI': 69,
-    'RBS': 70,
-    'RBJ': 71,
-    'RBY': 72,
-    'RBLI': 73,
-    'TS': 74,
-    'FW': 75,
-    'CDB': 76,
-    'CCB_CCP': 77,
-    'CCR_CCA': 78,
-    'CCR_CCB': 79,
-    'CCR_CCP': 80,
-    'CCR_LM': 81,
-    'CCT_CCA': 82,
-    'CCT_CCP': 83,
-    'CCT_LM': 84,
-    'CCU_DTP': 85,
-    'CDB_CCA': 86,
-    'CDB_CCP': 87,
-    'CDB_LM': 88,
-    'CDB_NNC': 89,
-    'CDB_NNC_CCP': 90,
-    'JJCC_CCP': 91,
-    'JJCC_JJD': 92,
-    'JJCN_CCP': 93,
-    'JJCN_LM': 94,
-    'JJCS_CCB': 95,
-    'JJCS_CCP': 96,
-    'JJCS_JJC': 97,
-    'JJCS_JJC_CCP': 98,
-    'JJCS_JJD': 99,
-    '[UNK]': 100,
-    '[CLS]': 101,
-    '[SEP]': 102,
-    'JJCS_JJN': 103,
-    'JJCS_JJN_CCP': 104,
-    'JJCS_RBF': 105,
-    'JJCS_VB': 106,
-    'JJCS_VB_CCP': 107,
-    'JJCS_VBN_CCP': 108,
-    'JJCS_VB': 109,
-    'JJCS_VB_CCP': 110,
-    'JJCS_VBN': 111,
-    'RBQ_CCP': 112,
-    'JJC_CCB': 113,
-    'JJC_CCP': 114,
-    'JJC_PRL': 115,
-    'JJD_CCA': 116,
-    'JJD_CCB': 117,
-    'JJD_CCP': 118,
-    'JJD_CCT': 119,
-    'JJD_NNC': 120,
-    'JJD_NNP': 121,
-    'JJN_CCA': 122,
-    'JJN_CCB': 123,
-    'JJN_CCP': 124,
-    'JJN_NNC': 125,
-    'JJN_NNC_CCP': 126,
-    'JJD_NNC_CCP': 127,
-    'NNC_CCA': 128,
-    'NNC_CCB': 129,
-    'NNC_CCP': 130,
-    'NNC_NNC_CCP': 131,
-    'NN': 132,
-    'JJN': 133,
-    'NNP_CCA': 134,
-    'NNP_CCP': 135,
-    'NNP_NNP': 136,
-    'PRC_CCB': 137,
-    'PRC_CCP': 138,
-    'PRF_CCP': 139,
-    'PRQ_CCP': 140,
-    'PRQ_LM': 141,
-    'PRS_CCB': 142,
-    'PRS_CCP': 143,
-    'PRSP_CCP': 144,
-    'PRSP_CCP_NNP': 145,
-    'PRL_CCP': 146,
-    'PRL_LM': 147,
-    'PRO_CCB': 148,
-    'PRO_CCP': 149,
-    'VBS_CCP': 150,
-    'VBTR_CCP': 151,
-    'VBTS_CCA': 152,
-    'VBTS_CCP': 153,
-    'VBTS_JJD': 154,
-    'VBTS_LM': 155,
-    'VB_CCP': 156,
-    'VBOB_CCP': 157,
-    'VB_CCP': 158,
-    'VB_CCP_NNP': 159,
-    'VBRF_CCP': 160,
-    'CCP': 161,
-    'CDB': 162,
-    'RBW_CCP': 163,
-    'RBD_CCP': 164,
-    'DTCP': 165,
-    'VBH': 166,
-    'VBTS_VB': 167,
-    'PRI_CCP': 168,
-    'VBTR_VB_CCP': 169,
-    'DQL': 170,
-    'DQR': 171,
-    'RBT_CCP': 172,
-    'VBW_CCP': 173,
-    'RBI_CCP': 174,
-    'VBN_CCP': 175,
-    'VBTR_VB': 176,
-    'VBTF_CCP': 177,
-    'JJCS_JJD_NNC': 178,
-    'CCU': 179,
-    'RBL_CCP': 180,
-    'VBTR_VBRF_CCP': 181,
-    'PRP_CCP': 182,
-    'VBTR_VBRF': 183,
-    'VBH_CCP': 184,
-    'VBTS_VB': 185,
-    'VBTF_VB': 186,
-    'VBTR_VB': 187,
-    'VBTF_VB': 188,
-    'JJCS_JJD_CCB': 189,
-    'JJCS_JJD_CCP': 190,
-    'RBM_CCP': 191,
-    'NNCS': 192,
-    'PRI_CCB': 193,
-    'NNA': 194,
-    'VBTR_VBOB': 195,
-    'DC': 196,
-    'JJD_CP': 197,
-    'NC': 198,
-    'NC_CCP': 199,
-    'VBO': 200,
-    'JJD_CC': 201,
-    'VBF': 202,
-    'CP': 203,
-    'NP': 204,
-    'N': 205,
-    'F': 206,
-    'CT': 207,
-    'MS': 208,
-    'BTF': 209,
-    'CA': 210,
-    'VB_RBR': 211,
-    'DP': 212,
+    'NN': 1,
+    'PRNN': 2,
+    'DET' : 3,
+    'VB' : 4,
+    'ADJ' : 5,
+    'ADV' : 6,
+    'NUM' : 7,
+    'CONJ' : 8,
+    'PUNCT' : 9,
+    'FW' : 10,
+    'LM' : 11,
 }
 
 num_labels = len(pos_tag_mapping)
@@ -246,21 +68,22 @@ def symbol2token(symbol):
 
     # Check if the symbol is a comma
     if symbol == ',':
-        return '[PMC] '
+        return '[PUNCT] '
 
     elif symbol == '.':
-        return '[PMP] '
+        return '[PUNCT] '
 
     # Check if the symbol is in the list of special symbols
     elif symbol in special_symbols:
-        return '[PMS] '
+        return '[PUNCT] '
 
     # If the symbol is not a comma or in the special symbols list, keep it as it is
     return symbol
 
 def preprocess_untagged_sentence(sentence):
     # Define regex pattern to capture all special symbols
-    special_symbols_regex = '|'.join([re.escape(sym) for sym in ['-', '&', "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.']])
+    special_symbols_regex = '|'.join([re.escape(sym) for sym in 
+                                      ['-', '&', "\"", "[", "]", "/", "$", "(", ")", "%", ":", "'", '.', '?']])
 
     # Replace all special symbols with spaces around them
     sentence = re.sub(rf'({special_symbols_regex})', r' \1 ', sentence)
@@ -273,14 +96,14 @@ def preprocess_untagged_sentence(sentence):
     # Convert the sentence to lowercase
     sentence = sentence.lower()
 
-    # Loop through the sentence and convert special symbols to tokens [PMS], [PMC], or [PMP]
+    # Loop through the sentence and convert special symbols to tokens [PUNCT]
     new_sentence = ""
     i = 0
     while i < len(sentence):
         if any(sentence[i:].startswith(symbol) for symbol in special_symbols):
-            # Check for ellipsis and replace with '[PMS]'
+            # Check for ellipsis and replace with '[PUNCT]'
             if i + 2 < len(sentence) and sentence[i:i + 3] == '...':
-                new_sentence += '[PMS]'
+                new_sentence += '[PUNCT]'
                 i += 3
             # Check for single special symbols
             elif i + 1 == len(sentence):
@@ -304,10 +127,10 @@ def preprocess_untagged_sentence(sentence):
         # Check for special symbols at the start of the sentence
         elif any(sentence[i:].startswith(symbol) for symbol in special_symbols):
             if i + 1 < len(sentence) and (sentence[i + 1] == ' ' and sentence[i - 1] != ' '):
-                new_sentence += '[PMS] '
+                new_sentence += '[PUNCT] '
                 i += 1
             elif i + 1 == len(sentence):
-                new_sentence += '[PMS] '
+                new_sentence += '[PUNCT] '
                 break
             else:
                 word_after_symbol = ""
@@ -324,8 +147,6 @@ def preprocess_untagged_sentence(sentence):
     print("---")
 
     return new_sentence, upper
-    tags = re.findall(r'<([A-Z_]+)\s.*?>', input_sentence)
-    return tags
 
 def clear_function(): 
     return "", "SSP with Augmentation"
@@ -341,7 +162,8 @@ def tag_sentence(input_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(input_sentence)
     
     # Tokenize the sentence
-    encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    encoded_sentence = tokenizer(sentence, padding="max_length", 
+                                 truncation=True, max_length=128, return_tensors="pt")
     
     # Pass the encoded sentence to the model to get logits
     with torch.no_grad():
@@ -369,7 +191,8 @@ def tag_sentence_highlight(input_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(input_sentence)
     
     # Tokenize the sentence
-    encoded_sentence = tokenizer(sentence, padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    encoded_sentence = tokenizer(sentence, padding="max_length", 
+                                 truncation=True, max_length=128, return_tensors="pt")
     
     # Pass the encoded sentence to the model to get logits
     with torch.no_grad():
@@ -389,301 +212,470 @@ def predict_tags(test_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(test_sentence)
     words_list = upper.split()
     predicted_pairs = tag_sentence(test_sentence, selected_model)
-
+    
+    # Ensure we don't go out of bounds
+    min_length = min(len(words_list), len(predicted_pairs))
+    
     # Align words with their corresponding predicted tags and scores
-    formatted_output = [{"word": words_list[i], "entity": predicted_pairs[i][0], "score": predicted_pairs[i][1]}
-                        for i in range(len(predicted_pairs))]
+    formatted_output = []
+    for i in range(min_length):
+        formatted_output.append({
+            "word": words_list[i],
+            "entity": predicted_pairs[i][0],
+            "score": predicted_pairs[i][1]
+        })
+    
+    """ # Handle any remaining words if necessary
+    for i in range(min_length, len(words_list)):
+        formatted_output.append({
+            "word": words_list[i],
+            "entity": "UNK",  # Unknown tag for unmatched words
+            "score": 0.0
+        }) """
     
     return formatted_output
 
 def predict_tags_highlight(test_sentence, selected_model):
     sentence, upper = preprocess_untagged_sentence(test_sentence)
     words_list = upper.split()
+    print("nice")
+    print(words_list)
     predicted_tags = tag_sentence_highlight(test_sentence, selected_model)
-
+    
+    # Ensure we don't go out of bounds
+    min_length = min(len(words_list), len(predicted_tags))
+    
     # Align words with their corresponding predicted tags
-    pairs = list(zip(words_list, predicted_tags))
+    pairs = []
+    for i in range(min_length):
+        pairs.append((words_list[i], predicted_tags[i]))
+    
+    # Handle any remaining words if necessary
+    for i in range(min_length, len(words_list)):
+        pairs.append((words_list[i], "UNK"))  # Unknown tag for unmatched words
+    
     return pairs
 
 
-
-""" def pos_tagger(text, selected_model):
-    model = models[selected_model]
+def create_custom_html(tagged_data, highlighted_output):
+    if not tagged_data or not highlighted_output:
+        return ""
     
-    inputs = tokenizers[selected_model](text, return_tensors="pt")
+    # Dictionary mapping tag abbreviations to full names
+    pos_tags = {
+        'VB': 'Verb',
+        'NN': 'Noun',
+        'PRNN': 'Pronoun',
+        'DET': 'Determiner',
+        'ADJ': 'Adjective',
+        'ADV': 'Adverb',
+        'NUM': 'Numerical',
+        'CONJ': 'Conjunction',
+        'PUNCT': 'Punctuation',
+        'FW': 'Foreign Word'
+    }
     
-    with torch.no_grad():
-        outputs = model(**inputs)
-
-    predicted_tags = outputs.logits.argmax(-1).tolist()
+    # Extract colors from highlighted_output assuming it's a list of entities
+    tag_colors = {}
+    for entity in highlighted_output:
+        if isinstance(entity, dict) and 'entity' in entity and 'color' in entity:
+            tag_colors[entity['entity']] = entity['color']
     
-    tagged_text = " ".join([f"{word}/{tag}" for word, tag in zip(tokenizers.convert_ids_to_tokens(inputs["input_ids"][0]), predicted_tags[0])])
+    html = """
+    <style>
+        .tag-card {
+            background: black;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+        .tag-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .word-section {
+            display: grid;
+            grid-template-columns: 150px 120px minmax(300px, 1fr) 100px;
+            align-items: center;
+            gap: 20px;
+            padding: 15px 30px;
+            border-radius: 6px;
+        }
+        .word {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        .tag {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-align: center;
+            width: fit-content;
+            cursor: help;
+            position: relative;
+        }
+        .tag:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 100%;
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.9em;
+            white-space: nowrap;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+        .score {
+            color: #ffffff;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        .score-bar {
+            width: 100%;
+            height: 15px;
+            background: #2a2a2a;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        .score-fill {
+            height: 100%;
+            background: #2cdca7;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .header {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+    </style>
+    <div class="tag-card">
+        <div class="word-section">
+            <span class="header">Word</span>
+            <span class="header">Tag Name</span>
+            <span class="header">Confidence Score (%)</span>
+            <span class="header"></span>
+        </div>
+    </div>
+    """
     
-    return tagged_text """
+    for item in tagged_data:
+        word = item.get('word', '')
+        tag = item.get('entity', '')
+        score = item.get('score', 0)
+        score2percent = score * 100
+        score_percentage = min(score * 100, 100)
+        
+        tag_color = tag_colors.get(tag, '#702cdc')
+        lighter_color = f"{tag_color}40"  # 25% opacity version for background
+        
+        # Get the full name for the tooltip, default to the tag if not found
+        tooltip = pos_tags.get(tag, tag)
+        
+        html += f"""
+        <div class="tag-card">
+            <div class="word-section" style="background: {lighter_color};">
+                <span class="word">{word}</span>
+                <span class="tag" style="background: {tag_color};" data-tooltip="{tooltip}">{tag}</span>
+                <div class="score-bar">
+                    <div class="score-fill" style="width: {score_percentage}%;"></div>
+                </div>
+                <span class="score">{score2percent:.2f}%</span>
+            </div>
+        </div>
+        """
+    
+    return html
 
-html_table = """
-<table style="width: 100%; border: 1px solid gray; border-collapse: collapse;">
-    <thead>
-        <tr>
-            <th style="border: 1px solid black; padding: 8px;">Part of Speech</th>
-            <th style="border: 1px solid black; padding: 8px;">Tags</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Common Noun</td>
-            <td style="border: 1px solid black; padding: 8px;">NNC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Proper Noun</td>
-            <td style="border: 1px solid black; padding: 8px;">NNP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Proper Noun Abbreviation</td>
-            <td style="border: 1px solid black; padding: 8px;">NNPA</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Common Noun Abbreviation</td>
-            <td style="border: 1px solid black; padding: 8px;">NNCA</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">as Subject (Palagyo)/Personal Pronouns Singular</td>
-            <td style="border: 1px solid black; padding: 8px;">PRS</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Personal Pronouns</td>
-            <td style="border: 1px solid black; padding: 8px;">PRP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Possessive Subject (Paari)</td>
-            <td style="border: 1px solid black; padding: 8px;">PRSP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Pointing to an Object Demonstrative/(Paturo)/Pamatlig</td>
-            <td style="border: 1px solid black; padding: 8px;">PRO</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Question/Interrogative (Pananong)/Singular</td>
-            <td style="border: 1px solid black; padding: 8px;">PRQ</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Location (Panlunan)</td>
-            <td style="border: 1px solid black; padding: 8px;">PRL</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Comparison (Panulad)</td>
-            <td style="border: 1px solid black; padding: 8px;">PRC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Indefinite</td>
-            <td style="border: 1px solid black; padding: 8px;">PRI</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Determiner</td>
-            <td style="border: 1px solid black; padding: 8px;">DT</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Common Noun Plural</td>
-            <td style="border: 1px solid black; padding: 8px;">DTC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Determiner (Pantukoy) for Proper Noun</td>
-            <td style="border: 1px solid black; padding: 8px;">DTP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Lexical Marker</td>
-            <td style="border: 1px solid black; padding: 8px;">LM</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Conjunctions (Pang-ugnay)</td>
-            <td style="border: 1px solid black; padding: 8px;">CJN</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Ligatures (Pang-angkop)</td>
-            <td style="border: 1px solid black; padding: 8px;">CCP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Preposition (Pang-ukol)</td>
-            <td style="border: 1px solid black; padding: 8px;">CCU</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Verb (Pandiwa)</td>
-            <td style="border: 1px solid black; padding: 8px;">VB</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Neutral/Infinitive</td>
-            <td style="border: 1px solid black; padding: 8px;">VBW</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Auxiliary, Modal/Pseudo-verbs</td>
-            <td style="border: 1px solid black; padding: 8px;">VBS</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Existential</td>
-            <td style="border: 1px solid black; padding: 8px;">VBH</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Non-existential</td>
-            <td style="border: 1px solid black; padding: 8px;">VBN</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Time Past (Perfective)</td>
-            <td style="border: 1px solid black; padding: 8px;">VBTS</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Time Present (Imperfective)</td>
-            <td style="border: 1px solid black; padding: 8px;">VBTR</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Time Future (Contemplative)</td>
-            <td style="border: 1px solid black; padding: 8px;">VBTF</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Adjective (Pang-uri)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJ</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Describing (Panlarawan)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJD</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Used for Comparison (same level) (Pahambing Magkatulad)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Comparison Comparative (more) (Palamang)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJCC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Comparison Superlative (most) (Pasukdol)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJCS</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Describing Number (Pamilang)</td>
-            <td style="border: 1px solid black; padding: 8px;">JJN</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Adverb (Pang-Abay)</td>
-            <td style="border: 1px solid black; padding: 8px;">RB</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Describing “How” (Pamaraang)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBD</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Number (Panggaano/Panukat)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBN</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Conditional (Kondisyunal)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBK</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Referential (Pangkaukulan)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBR</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Question (Pananong)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBQ</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Agree (Panang-ayon)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBT</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Disagree (Pananggi)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBF</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Frequency (Pamanahon)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBW</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Possibility (Pang-agam)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBM</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Place (Panlunan)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBL</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Enclitics (Paningit)</td>
-            <td style="border: 1px solid black; padding: 8px;">RBI</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Cardinal Number (Bilang)</td>
-            <td style="border: 1px solid black; padding: 8px;">CD</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Digit, Rank, Count</td>
-            <td style="border: 1px solid black; padding: 8px;">CDB</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Foreign Words</td>
-            <td style="border: 1px solid black; padding: 8px;">FW</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Punctuation (Pananda)</td>
-            <td style="border: 1px solid black; padding: 8px;">PM</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Period</td>
-            <td style="border: 1px solid black; padding: 8px;">PMP</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Exclamation Point</td>
-            <td style="border: 1px solid black; padding: 8px;">PME</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Question Mark</td>
-            <td style="border: 1px solid black; padding: 8px;">PMQ</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Comma</td>
-            <td style="border: 1px solid black; padding: 8px;">PMC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Semi-colon</td>
-            <td style="border: 1px solid black; padding: 8px;">PMSC</td>
-        </tr>
-        <tr>
-            <td style="border: 1px solid black; padding: 8px;">Symbols</td>
-            <td style="border: 1px solid black; padding: 8px;">PMS</td>
-        </tr>
-    </tbody>
-</table>
+custom_css = """
+<style>
+/* Input and Select Model Styling */
+.input-container {
+    background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(45, 45, 45, 0.95));
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
 
+/* Input Box Styling */
+.input-box textarea {
+   background: linear-gradient(165deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.98)) !important;
+   border: 1px solid rgba(108, 44, 220, 0.2) !important;
+   border-radius: 14px !important;
+   padding: 18px !important;
+   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1),
+               0 8px 16px rgba(0, 0, 0, 0.1) !important;
+   backdrop-filter: blur(4px) !important;
+}
+
+.input-box textarea:focus {
+   border-color: #2cdca7 !important;
+   box-shadow: 0 0 0 3px rgba(44, 220, 167, 0.15),
+               inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+   transform: translateY(-1px) !important;
+}
+
+.input-box label {
+    color: #2cdca7 !important;
+    font-size: 24px !important;
+    font-weight: 600 !important;
+}
+
+/* Select Model Dropdown Styling */
+/* Updated Select Model styles */
+.model-select {
+    margin: 10px 0;
+}
+
+
+/* Container reset */
+.model-select > .wrap {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* Label styling */
+.model-select label {
+    color: #2cdca7 !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+}
+
+.model-select select {
+   background: linear-gradient(165deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.98)) !important;
+   border: 1px solid rgba(108, 44, 220, 0.2) !important;
+   border-radius: 12px !important;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Dropdown button styling */
+.model-select > select,
+.model-select > .wrap > div > select {
+    background: linear-gradient(165deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.98)) !important;
+    border: 1px solid rgba(108, 44, 220, 0.2) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    color: white !important;
+    font-size: 16px !important;
+    padding: 12px !important;
+}
+
+/* Hover state */
+.model-select select:hover,
+.model-select > .wrap > .wrap > select:hover {
+    border-color: #2cdca7 !important;
+    background-color: rgba(31, 41, 55, 0.98) !important;
+}
+
+/* Focus state */
+.model-select select:focus,
+.model-select > .wrap > .wrap > select:focus {
+    border-color: #702cdc !important;
+    box-shadow: 0 0 0 2px rgba(108, 44, 220, 0.2) !important;
+    outline: none !important;
+}
+
+/* Dropdown options */
+.model-select select option,
+.model-select > .wrap > .wrap > select option {
+    background-color: #1a1a1a !important;
+    color: white !important;
+    padding: 12px !important;
+}
+
+/* Remove default dropdown arrow in IE */
+.model-select select::-ms-expand {
+    display: none !important;
+}
+
+/* Button Styling */
+.primary-button, .secondary-button {
+    padding: 10px 20px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+.primary-button {
+    background: linear-gradient(270deg, #702cdc, #2cdca7, #702cdc) !important;
+    background-size: 200% 100% !important;
+    animation: gradient 3s ease infinite !important;
+    border: none !important;
+    color: white !important;
+}
+.secondary-button {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 2px solid rgba(108, 44, 220, 0.3) !important;
+    color: #944FBF !important;
+}
+
+.primary-button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 15px rgba(44, 220, 167, 0.2) !important;
+}
+
+.secondary-button:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+@keyframes gradient {
+    0% { background-position: 0% 50% }
+    50% { background-position: 100% 50% }
+    100% { background-position: 0% 50% }
+}
+
+
+/* Examples Section Styling */
+.examples-section {
+    margin-top: 10px !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+}
+
+.examples-section label {
+    color: #2cdca7 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+}
+
+/* Tab Navigation Styling */
+.tabs > .tab-nav {
+    background: linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(45, 45, 45, 0.95)) !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+}
+
+.tabs > .tab-nav > button {
+    font-family: 'Poppins', sans-serif !important;  /* Change font family */
+    font-size: 16px !important;                     /* Change font size */
+    font-weight: 600 !important;                    /* Change font weight */
+    color: #ffffff !important;                      /* Change font color */
+    text-transform: uppercase !important;           /* Make text uppercase */
+    letter-spacing: 1px !important;                 /* Add letter spacing */
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Selected tab styling */
+.tabs > .tab-nav > button.selected {
+    background: linear-gradient(90deg, #702cdc, #2cdca7) !important;
+    color: white !important;
+}
+
+/* Hover effect for tabs */
+.tabs > .tab-nav > button:hover:not(.selected) {
+    background: rgba(255, 255, 255, 0.1) !important;
+    transform: translateY(-2px) !important;
+}
+</style>
 """
 
-with gr.Blocks(theme='ParityError/Interstellar') as tagger:
-    gr.Markdown("<div style='margin-top: 20px; text-align: center; font-size: 2em; font-weight: bold;'>TAGALONGGO: A Part-of-Speech (POS) Tagger For Tagalog-Ilonggo Texts Using Bilingual BERT</div>")
-
-    with gr.Row(): 
-        with gr.Column(): 
-            sentence_input = gr.Textbox(placeholder="Enter sentence here...", label="Input")
-            model_input_dropdown = gr.Dropdown(choices=list(model_paths.keys()), label="Select Model", value="SSP with Augmentation")
-            
-            with gr.Row():
-                clear_button = gr.Button("Clear")
-                clear_button.click(fn=clear_function, outputs=[sentence_input, model_input_dropdown])  # Set outputs for clearing
-                submit_button = gr.Button("Submit")
-
-            example_text = gr.Examples(
-                examples=[
-                    ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
-                    ["Nagbakal ako ng bakal."]
-                ],
-                inputs=[sentence_input, model_input_dropdown]
-            )
-
-        with gr.Column(min_width=900):  
-            """ tagged_output = gr.HighlightedText(label="Tagged Sentence") """
-            tagged_output = gr.HighlightedText(label="Tagged Texts:")
-            tagged_output_with_scores = gr.JSON(label="Tagged Texts With Scores:")
+# Modified process_and_display_cards function
+def process_and_display_cards(sentence, model):
+    # Get the tagged data
+    tagged_data = predict_tags(sentence, model)
         
+    # Get the highlighted output and extract just the entities
+    highlighted_result = predict_tags_highlight(sentence, model)
+    entities = highlighted_result.get('entities', []) if isinstance(highlighted_result, dict) else highlighted_result
+        
+    # Convert to card view HTML using the same colors
+    html_output = create_custom_html(tagged_data, entities)
+    return html_output
 
-    submit_button.click(fn=predict_tags_highlight, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output) 
-    submit_button.click(fn=predict_tags, inputs=[sentence_input, model_input_dropdown], outputs=tagged_output_with_scores) 
-    gr.HTML(html_table)
+def create_main_interface():
+    with gr.Blocks(theme='ParityError/Interstellar') as tagger:
+        gr.HTML(custom_css)  # Add the custom CSS
+        gr.Image(value="img/Tagalongo logo.png", show_label=False, container=False, height=150)
+        
+        with gr.Row(): 
+            with gr.Column(): 
+                with gr.Column():
+                    sentence_input = gr.Textbox(
+                        placeholder="Enter sentence here...",
+                        label="INPUT",
+                        elem_classes="input-box"
+                    )
+                    model_input_dropdown = gr.Dropdown(
+                        choices=list(model_paths.keys()),
+                        label="Select Model",
+                        value="SSP with Augmentation",
+                        elem_classes="model-select",
+                        container=False  # Changed to False to prevent extra container
+                    )
+                    
+                    with gr.Row():
+                        clear_button = gr.Button("Clear", elem_classes="secondary-button")
+                        submit_button = gr.Button("Submit", elem_classes="primary-button")
 
-tagger.launch(favicon_path="favicon.png", share=True)
+                    with gr.Column(elem_classes="examples-section"):
+                        example_text = gr.Examples(
+                            examples=[
+                                ["Luyag ko mag-bakasyon sa iloilo kay damo sang magagandang lugar."],
+                                ["Nagbakal ako ng bakal."]
+                            ],
+                            inputs=[sentence_input, model_input_dropdown]
+                        )
+
+            with gr.Column(min_width=900):  
+                tagged_output = gr.HighlightedText(label="Tagged Texts:")
+                tagged_output_cards = gr.HTML(label="Tagged Texts With Scores")
+
+        # Modified process_and_display_cards function
+        def process_and_display_cards(sentence, model):
+            # Get the tagged data
+            tagged_data = predict_tags(sentence, model)
+
+            # Get the highlighted output and extract just the entities
+            highlighted_result = predict_tags_highlight(sentence, model)
+            entities = highlighted_result.get('entities', []) if isinstance(highlighted_result, dict) else highlighted_result
+
+            # Convert to card view HTML using the same colors
+            html_output = create_custom_html(tagged_data, entities)
+            return html_output
+
+        clear_button.click(
+            fn=clear_function,
+            outputs=[sentence_input, model_input_dropdown]
+        )
+
+        submit_button.click(
+            fn=predict_tags_highlight,
+            inputs=[sentence_input, model_input_dropdown],
+            outputs=tagged_output
+        )
+
+        submit_button.click(
+            fn=process_and_display_cards,
+            inputs=[sentence_input, model_input_dropdown],
+            outputs=tagged_output_cards
+        )
+        
+    return tagger
+
+demo = gr.TabbedInterface(
+    interface_list=[
+        create_main_interface(),
+        create_pos_tags_reference(),
+        create_how_to_use_page(),
+        create_about_us_page()
+    ],
+    tab_names=["🏠 Home", "📝 List of POS", "❔ How to Use", "👥 About Us"],
+    css=custom_css
+)
+
+if __name__ == "__main__":
+    demo.launch(favicon_path="favicon.png", share=True)

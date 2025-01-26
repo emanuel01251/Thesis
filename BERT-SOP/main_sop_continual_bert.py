@@ -7,12 +7,10 @@ from bert_with_sop_head import BertForPreTrainingMLMandSOP
 import os
 
 vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
-""" merges_file = "./BERT-SSP/tokenizer-corpus/cased.json" """
 tokenizer = BertTokenizerFast(
     vocab_file=vocab_file
 )
 
-# Define your dataset
 current_dir = os.getcwd()
 texts = os.path.join(current_dir, "Dataset", "Unlabeled Corpus", "New Hiligaynon Corpus.txt")
 

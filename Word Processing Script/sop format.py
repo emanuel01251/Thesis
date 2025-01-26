@@ -33,8 +33,8 @@ def format_to_sop_input_with_paragraphs(input_file, output_file):
     with open(output_file, 'w', encoding='utf-8') as file:
         file.write("\n".join(output_lines))
 
-input_file_path = './Data Augmentation/EDA/Unlabeled Corpus/New Hiligaynon Corpus augmented_output.txt'
-output_file_path = './Data Augmentation/EDA/Unlabeled Corpus/SOP New Hiligaynon Corpus augmented_output.txt'
+input_file_path = './Dataset/Unlabeled Corpus/Tagalog Corpus.txt'
+output_file_path = './Dataset/Unlabeled Corpus/SOP Tagalog Corpus.txt'
 
 format_to_sop_input_with_paragraphs(input_file_path, output_file_path)
 

@@ -25,10 +25,10 @@ def process_input_file(input_file):
 import os
 
 current_dir = os.getcwd()
-current_dir += "\Dataset\Labeled Corpus\set-train.txt"
+current_dir += "./Dataset/Labeled Corpus/hil-eval-set.txt"
 cleaned_sentences = process_input_file(current_dir)
 
-output_file = "cleaned_sentences set-eval.txt"
+output_file = "cleaned_sentences hil-eval-set.txt"
 with open(output_file, 'w') as f:
     for sentence in cleaned_sentences:
         f.write(sentence + '\n')
