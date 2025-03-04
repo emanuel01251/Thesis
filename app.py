@@ -599,7 +599,7 @@ def process_and_display_cards(sentence, model):
 def create_main_interface():
     with gr.Blocks(theme='ParityError/Interstellar') as tagger:
         gr.HTML(custom_css)  # Add the custom CSS
-        gr.Image(value="img/Tagalongo logo.png", show_label=False, container=False, height=150)
+        gr.Image(value="/public/img/Tagalongo logo.png", show_label=False, container=False, height=150)
         
         with gr.Row(): 
             with gr.Column(): 
@@ -679,3 +679,5 @@ demo = gr.TabbedInterface(
 
 if __name__ == "__main__":
     demo.launch(favicon_path="favicon.png", share=True)
+
+app = demo.app
