@@ -32,12 +32,12 @@ from transformers import AutoTokenizer, AutoModelForTokenClassification
 import re
 
 model_paths = {
-    "SSP with Augmentation": "./BERT-SSP-DA-POS/BERTPOS_tl",
-    "SOP with Augmentation": "./BERT-SOP-DA-POS/BERTPOS_tl",
-    "SSP without Augmentation": "./BERT-SSP-POS/BERTPOS_tl",
-    "SOP without Augmentation": "./BERT-SOP-POS/BERTPOS_tl",
-    "Baseline": "./BERT-NSP-POS/BERTPOS_tl",
-    "Baseline with Augmentation": "./BERT-NSP-DA-POS/BERTPOS_tl"
+    "SSP with Augmentation": "emanuel01251/BERT_SSP_DA_POS",
+    "SOP with Augmentation": "emanuel01251/BERT_SOP_DA_POS",
+    "SSP without Augmentation": "emanuel01251/BERT_SSP_POS",
+    "SOP without Augmentation": "emanuel01251/BERT_SOP_POS",
+    "Baseline": "emanuel01251/BERT-NSP-POS",
+    "Baseline with Augmentation": "emanuel01251/BERT-NSP-DA-POS"
 }
 
 models = {name: AutoModelForTokenClassification.from_pretrained(path) for name, path in model_paths.items()}
