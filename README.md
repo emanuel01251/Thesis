@@ -4,7 +4,7 @@ A brief description of your project and its purpose.
 
 ---
 ## Interface Preview
-![TAGALONGGO Interface](public/screenshot/interface-preview.jpg)
+![TAGALONGGO Interface](public/screenshot/interface-preview.png)
 
 ## Prerequisites 📋
 
