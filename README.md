@@ -38,4 +38,4 @@ A brief description of your project and its purpose.
 ## Running the Program ▶️
 -  After activating the virtual environment and installing dependencies, run:
   ```bash
-  python app.py
+  python app/app.py
