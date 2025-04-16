@@ -15,8 +15,8 @@ print(cached_data[0]) """
 
 from transformers import BertTokenizerFast
 
-vocab_file = "./BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
-merges_file = "./BERT-SSP/tokenizer-corpus/cased.json"  # If merges_file is required (optional for BERT)
+vocab_file = "./models/BERT-SSP/tokenizer-corpus-hiligaynon/uncased-vocab.txt"
+merges_file = "./models/BERT-SSP/tokenizer-corpus/cased.json"  # If merges_file is required (optional for BERT)
 """ tokenizer = BertTokenizerFast(
     vocab_file=vocab_file,
     tokenizer_file=merges_file

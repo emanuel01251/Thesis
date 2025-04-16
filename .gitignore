@@ -1,4 +1,5 @@
 .venv_3.9/
+venv
 *.csv
 *.txt
 Hiligaynon Corpus/
