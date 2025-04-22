@@ -1,6 +1,6 @@
 # TAGALONGGO: Tagalog and Ilonggo Part-of-Speech Taggers 🚀
 
-A brief description of your project and its purpose.
+
 
 ---
 ## Interface Preview
